@@ -32,17 +32,17 @@ async function serveCli(t: TestContext, args: string[], options: SpawnOptions = 
   return address;
 }
 
-/** `skill-atlas serve <args>` in-process, with a fake server: the exit code, the ports served, the errors. */
+/** `skill-atlas serve <args>` in-process, with a fake server: the exit code, the ports served, stderr. */
 async function serveWith(args: string[]) {
-  const served: number[] = [];
-  const errors: string[] = [];
+  const ports: number[] = [];
+  const stderr: string[] = [];
   const code = await run(['serve', ...args], {
     open: () => Promise.reject(new Error('not opened')),
     print: () => {},
-    error: (text) => errors.push(text),
-    serve: async (port) => (served.push(port), new URL('http://127.0.0.1/')),
+    error: (text) => stderr.push(text),
+    serve: async (port) => (ports.push(port), new URL('http://127.0.0.1/')),
   });
-  return [code, served, errors];
+  return { code, ports, stderr: stderr.join('\n') };
 }
 
 const server = atlasServer();
@@ -200,17 +200,22 @@ test('skill-atlas serve: a bad port → a clear message, exit code 1', async () 
   assert.equal(bad.stderr, 'Not a port: many\nUsage: skill-atlas serve [--port <port>]\n');
   // Digits only, 0 to 65535; 0 picks a free port.
   for (const port of ['', '0x1F90', '1e3', '-1', '65536', '80.5', ' 80']) {
-    assert.deepEqual(await serveWith(['--port', port]), [1, [], [`Not a port: ${port}\nUsage: skill-atlas serve [--port <port>]`]], port);
+    const expected = { code: 1, ports: [], stderr: `Not a port: ${port}\nUsage: skill-atlas serve [--port <port>]` };
+    assert.deepEqual(await serveWith(['--port', port]), expected, port);
   }
+});
+
+test('skill-atlas serve: other arguments → the usage, exit code 1', async () => {
   for (const args of [['--port'], ['80'], ['--port', '80', '81'], ['--host', '80']]) {
-    assert.deepEqual(await serveWith(args), [1, [], ['Usage: skill-atlas serve [--port <port>]']], args.join(' '));
+    const expected = { code: 1, ports: [], stderr: 'Usage: skill-atlas serve [--port <port>]' };
+    assert.deepEqual(await serveWith(args), expected, args.join(' '));
   }
 });
 
 test('skill-atlas serve: port 3000 by default; any port from 0 to 65535', async () => {
-  assert.deepEqual(await serveWith([]), [0, [3000], []]);
+  assert.deepEqual(await serveWith([]), { code: 0, ports: [3000], stderr: '' });
   for (const [port, number] of [['0', 0], ['1', 1], ['080', 80], ['65535', 65535]] as const) {
-    assert.deepEqual(await serveWith(['--port', port]), [0, [number], []], port);
+    assert.deepEqual(await serveWith(['--port', port]), { code: 0, ports: [number], stderr: '' }, port);
   }
 });
 

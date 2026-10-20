@@ -8,5 +8,5 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   const url = String(input instanceof Request ? input.url : input);
   const headers = new Headers(init?.headers);
   appendFileSync(process.env.SKILL_ATLAS_SEEN!, `${headers.get('authorization') ?? 'none'}\n`);
-  return github(url, { headers: Object.fromEntries(headers) });
+  return github(url);
 }) as typeof fetch;
