@@ -1,0 +1,3 @@
+interface:
+  display_name: "Demo Feature"
+  short_description: "Record a new web view feature: a video with a pointer and screenshots of its key points"
