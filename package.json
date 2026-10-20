@@ -15,7 +15,8 @@
     "test:unit": "node --test tests/*.test.ts",
     "test:web": "playwright test",
     "e2e": "node --test e2e/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo": "node scripts/demo.ts"
   },
   "dependencies": {
     "dompurify": "^3.4.17",
