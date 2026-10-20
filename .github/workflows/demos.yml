@@ -1,16 +1,26 @@
-# The demos of the web view (demos/*.demo.ts) on every pull request, apart from CI (ci.yml): each one
-# recorded on real repositories, its video an artifact of its own, `<name>.webm`, to link from the pull
-# request's description. A demo asserts what it shows: a red run is a demo or a feature that broke.
+# The demos of the web view (demos/*.demo.ts), on demand, apart from CI (ci.yml): each one recorded on
+# real repositories, its video an artifact of its own, `<name>.webm`, to link from a pull request's
+# description. Run by hand or by a skill (implement-issue), on a branch:
+#   gh workflow run Demos --ref <branch> [-f demos='<name> <name>']
+# (GitHub runs it only once this file is on the default branch.) A demo asserts what it shows: a red
+# run is a demo or a feature that broke.
 name: Demos
+run-name: "Demos: ${{ inputs.demos || 'all' }} on ${{ github.ref_name }}"
 on:
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      demos:
+        description: "The demos to record, by name (demos/<name>.demo.ts), separated by spaces or commas; empty: all"
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 concurrency:
-  group: demos-${{ github.ref }}
+  group: demos-${{ github.ref }}-${{ inputs.demos }}
   cancel-in-progress: true
 jobs:
-  # The demos: their names, for the job below.
+  # The demos asked for (each one must exist), or all of them: their names, for the job below.
   demo-list:
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -19,7 +29,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: list
-        run: echo "names=$(ls demos/*.demo.ts | xargs -n1 basename | sed 's/\.demo\.ts$//' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+        env:
+          DEMOS: ${{ inputs.demos }}
+        run: |
+          if [ -n "$(echo "$DEMOS" | tr -d ', ')" ]; then
+            names=$(echo "$DEMOS" | tr ', ' '\n\n' | grep -v '^$' | sort -u)
+          else
+            names=$(ls demos/*.demo.ts | xargs -n1 basename | sed 's/\.demo\.ts$//')
+          fi
+          for name in $names; do
+            echo "$name" | grep -qx '[a-z0-9-]*' && [ -f "demos/$name.demo.ts" ] ||
+              { echo "::error::No demo $name: demos/$name.demo.ts"; exit 1; }
+          done
+          echo "names=$(printf '%s\n' $names | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
   # Each demo, on real repositories as `npm run demo` does, its video an artifact of its own,
   # `<name>.webm`, to link from the pull request's description.
   demo:
@@ -41,8 +63,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       # For the waits a demo plays faster (faster() in demos/demo.ts).
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
-      - run: npm run demo -- ${{ matrix.name }}.demo.ts
+      - run: npm run demo -- "$NAME.demo.ts"
         env:
+          NAME: ${{ matrix.name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v7
         if: always()
