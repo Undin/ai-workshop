@@ -3,7 +3,7 @@
 // In tests/web, not e2e/: these never reach the network; e2e/ is the CLI on real repositories.
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { atlas, EXAMPLE_COMMIT, FIXTURE } from '../helpers.ts';
+import { atlas, EXAMPLE_COMMIT, FIXTURE, SLOW_ANSWER_MS } from '../helpers.ts';
 
 /** Types the repository link into the field and scans it. */
 async function scan(page: Page, source: string, how: 'enter' | 'button' = 'enter') {
@@ -168,7 +168,7 @@ test('back to no repository: a scan still running does not show its result', asy
   await page.goBack();
   await expect(page).toHaveURL('/');
   await expect(page.getByLabel('Repository')).toHaveValue('');
-  await page.waitForTimeout(2500); // past the slow answer
+  await page.waitForTimeout(SLOW_ANSWER_MS + 500); // past the slow answer
   await expect(page.getByRole('navigation')).toBeHidden();
   await expect(page.getByRole('status')).toBeHidden();
 });

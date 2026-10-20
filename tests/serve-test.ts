@@ -3,7 +3,7 @@
 import type { Fetch } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { createAtlasServer, listen } from '../src/server.ts';
-import { EXAMPLE_COMMIT, github, openWith } from './helpers.ts';
+import { EXAMPLE_COMMIT, github, openWith, SLOW_ANSWER_MS } from './helpers.ts';
 
 /** Code search, the commit and the files for a repository with these SKILL.md files. */
 function repository(id: string, files: Record<string, string>): Recording {
@@ -51,10 +51,10 @@ const answers = replay(
   github,
 );
 
-// JetBrains/slow answers as JetBrains/example does, two seconds late: a scan still running.
+// JetBrains/slow answers as JetBrains/example does, SLOW_ANSWER_MS late: a scan still running.
 const slow: Fetch = async (url, init) => {
   if (!url.includes('JetBrains/slow')) return answers(url, init);
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, SLOW_ANSWER_MS));
   return answers(url.replace('JetBrains/slow', 'JetBrains/example'), init);
 };
 

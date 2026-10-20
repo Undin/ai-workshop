@@ -7,14 +7,15 @@ import { request } from 'node:http';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { after, test } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
 import { createBrowserBackend } from '../src/browser.ts';
 import { run } from '../src/commands.ts';
-import { createAtlasServer, isServedHost, listen, type ErrorAnswer, type ScanAnswer } from '../src/server.ts';
-import type { Fetch } from '../src/core/github.ts';
-import { openSource } from '../src/open.ts';
-import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE, github } from './helpers.ts';
+import { isServedHost, listen, type ErrorAnswer, type ScanAnswer } from '../src/server.ts';
+import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
+
+const PRELOAD = fileURLToPath(new URL('github-preload.ts', import.meta.url));
 
 const server = atlasServer();
 const base = await listen(server, 0);
@@ -95,16 +96,27 @@ test('an empty field → 400 and a hint; an unreachable repository, not a GitHub
   assert.deepEqual((await scanOf(gitlab)).body, { error: cli.stderr });
 });
 
-test('GITHUB_TOKEN works as for scan: the server opens with openSource, and GitHub gets the token', async (t) => {
-  const seen: (string | undefined)[] = [];
-  const spy: Fetch = (url, init) => (seen.push(init?.headers?.Authorization), github(url, init));
-  const withToken = createAtlasServer({ open: (input) => openSource(input, { fetch: spy, token: 'secret' }) });
-  const address = await listen(withToken, 0);
-  t.after(() => withToken.close());
-  const answer = await fetch(new URL(`/api/scan?source=${encodeURIComponent('https://github.com/JetBrains/example')}`, address));
-  assert.equal(answer.status, 200);
+test('GITHUB_TOKEN works for serve as for scan: from the environment to GitHub', async (t) => {
+  // The real CLI, with GitHub answering from a recording and telling which token it got.
+  const dir = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const seen = (name: string) => readFileSync(join(dir, name), 'utf8').trim().split('\n');
+  const env = (name: string) => ({ ...process.env, GITHUB_TOKEN: 'secret', SKILL_ATLAS_SEEN: join(dir, name) });
+  const node = [...['--import', PRELOAD], CLI];
+  const example = 'https://github.com/JetBrains/example';
+
+  const scanned = spawnSync(process.execPath, [...node, 'scan', example], { env: env('scan'), encoding: 'utf8' });
+  assert.equal(scanned.status, 0, scanned.stderr);
   // The API requests carry it; raw.githubusercontent.com is asked without.
-  assert.ok(seen.includes('Bearer secret'), String(seen));
+  assert.ok(seen('scan').includes('Bearer secret'), seen('scan').join(', '));
+
+  const served = spawn(process.execPath, [...node, 'serve', '--port', '0'], { env: env('serve'), stdio: ['ignore', 'pipe', 'inherit'] });
+  t.after(() => served.kill());
+  const [line] = (await once(served.stdout, 'data')) as [Buffer];
+  const address = /^Skill Atlas: (\S+)\n$/.exec(line.toString())![1];
+  const answer = await fetch(new URL(`/api/scan?source=${encodeURIComponent(example)}`, address));
+  assert.equal(answer.status, 200);
+  assert.deepEqual(seen('serve'), seen('scan'));
 });
 
 test('anything else → 404; not GET → 405; the scan, not HEAD either', async () => {

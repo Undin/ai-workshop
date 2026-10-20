@@ -9,6 +9,9 @@ import { createAtlasServer } from '../src/server.ts';
 export const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 export const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 
+/** How late tests/serve-test.ts answers for JetBrains/slow: a scan still running. */
+export const SLOW_ANSWER_MS = 2000;
+
 /** The commit GitHub answers for JetBrains/example. */
 export const EXAMPLE_COMMIT = '5ab6270ab772d113e8ad52ebfcaa0109c522ae00';
 
