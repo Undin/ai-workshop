@@ -7,20 +7,24 @@ export type Fetch = (url: string, init?: { headers?: Record<string, string> }) =
 
 export type GitHubOptions = {
   fetch: Fetch;
-  /** With a token, skills are found through code search; without it, through the tree. */
+  /** With a token, skills are found through code search; without it, or for a pinned ref, through the tree. */
   token?: string;
 };
 
 const API = 'https://api.github.com';
 const RAW = 'https://raw.githubusercontent.com';
 
-/** `https://github.com/owner/repo`, with or without the scheme, a trailing slash or `.git`. */
-export function parseGitHubUrl(input: string): { owner: string; repo: string } | undefined {
-  const match = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/i.exec(input.trim());
-  return match ? { owner: match[1], repo: match[2] } : undefined;
+/**
+ * `https://github.com/owner/repo`, with or without the scheme, a trailing slash or `.git`;
+ * `/tree/<ref>` pins a commit, branch or tag.
+ */
+export function parseGitHubUrl(input: string): { owner: string; repo: string; ref?: string } | undefined {
+  const match = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/tree\/([^?#]+?))?\/?$/i.exec(input.trim());
+  if (!match) return undefined;
+  return match[3] ? { owner: match[1], repo: match[2], ref: match[3] } : { owner: match[1], repo: match[2] };
 }
 
-/** Resolves the default branch to a commit and lists the files that may be skills. */
+/** Resolves the ref, else the default branch, to a commit and lists the files that may be skills. */
 export async function openGitHub(input: string, options: GitHubOptions): Promise<Source> {
   const name = parseGitHubUrl(input);
   if (!name) throw new AtlasError(`Not a GitHub repository URL: ${input}`);
@@ -30,12 +34,16 @@ export async function openGitHub(input: string, options: GitHubOptions): Promise
     `Repository not found: https://github.com/${name.owner}/${name.repo}`,
   );
   const id = info.full_name;
-  const { sha } = await github.json<{ sha: string }>(`${API}/repos/${id}/commits/${encodePath(info.default_branch)}`);
+  const ref = name.ref ?? info.default_branch;
+  const { sha } = await github.json<{ sha: string }>(
+    `${API}/repos/${id}/commits/${encodePath(ref)}`,
+    `Not found in https://github.com/${id}: ${ref}`,
+  );
   const warnings: string[] = [];
-  // Code search finds files only; the tree has the links too.
-  const entries = options.token
+  // Code search finds files only, and only on the default branch; the tree has the links too.
+  const entries = options.token && !name.ref
     ? (await searchPaths(github, id)).map((path) => ({ path, link: undefined }))
-    : await treeEntries(github, id, sha, warnings);
+    : await treeEntries(github, id, sha, warnings, !name.ref);
   const links = new Map(entries.flatMap((entry) => (entry.link ? [[entry.path, entry.link]] : [])));
   const [organization, repo] = id.split('/');
   return {
@@ -74,10 +82,10 @@ type Tree = { truncated: boolean; tree: { path: string; mode: string; type: stri
 type Entry = { path: string; link: string | undefined };
 
 /** The whole tree at once, or only the skill roots when it is too large for one answer. */
-async function treeEntries(github: Client, id: string, sha: string, warnings: string[]): Promise<Entry[]> {
+async function treeEntries(github: Client, id: string, sha: string, warnings: string[], searchable: boolean): Promise<Entry[]> {
   const tree = await github.json<Tree>(`${API}/repos/${id}/git/trees/${sha}?recursive=1`);
   if (!tree.truncated) return files(tree);
-  warnings.push(`the tree is too large to list at once; looked only in ${SKILL_ROOTS.join(', ')} (GITHUB_TOKEN searches everywhere)`);
+  warnings.push(`the tree is too large to list at once; looked only in ${SKILL_ROOTS.join(', ')}${searchable ? ' (GITHUB_TOKEN searches everywhere)' : ''}`);
   const entries: Entry[] = [];
   for (const root of SKILL_ROOTS) {
     const rootSha = await directory(github, id, sha, root);

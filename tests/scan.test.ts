@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
-import { openGitHub } from '../src/core/github.ts';
+import { openGitHub, parseGitHubUrl } from '../src/core/github.ts';
 import { parseSkill } from '../src/core/parse.ts';
 import { replay } from '../src/core/replay.ts';
 import { scan } from '../src/core/scan.ts';
@@ -252,6 +252,49 @@ test('on GitHub, without a token: a link in the tree is read from its blob and f
     result.skills.map((skill) => [skill.path, skill.copies]),
     [['.claude/skills/commits/SKILL.md', ['.github/skills/commits/SKILL.md']]],
   );
+});
+
+// A pinned ref: /tree/<ref> instead of the default branch.
+
+test('a URL with /tree/<ref> → that ref', () => {
+  assert.deepEqual(parseGitHubUrl('https://github.com/JetBrains/kotlin/tree/v2.1.0/'), { owner: 'JetBrains', repo: 'kotlin', ref: 'v2.1.0' });
+  assert.deepEqual(parseGitHubUrl('github.com/JetBrains/kotlin/tree/release/2.1'), { owner: 'JetBrains', repo: 'kotlin', ref: 'release/2.1' });
+  assert.deepEqual(parseGitHubUrl('https://github.com/JetBrains/kotlin'), { owner: 'JetBrains', repo: 'kotlin' });
+});
+
+test('on GitHub, a pinned ref with a token: listed through the tree at that commit, linked to it', async () => {
+  const commit = 'd7e4f5c1394535b05e90dde6e3e7e8a3f3e174a2';
+  // No search answer is recorded: code search only sees the default branch.
+  const pinned = replay({
+    'https://api.github.com/repos/JetBrains/pinned': { status: 200, body: { full_name: 'JetBrains/pinned', default_branch: 'main' } },
+    [`https://api.github.com/repos/JetBrains/pinned/commits/${commit}`]: { status: 200, body: { sha: commit } },
+    [`https://api.github.com/repos/JetBrains/pinned/git/trees/${commit}?recursive=1`]: {
+      status: 200,
+      body: { truncated: false, tree: [{ path: '.claude/skills/commits/SKILL.md', mode: '100644', type: 'blob', sha: 'file' }] },
+    },
+    [`https://raw.githubusercontent.com/JetBrains/pinned/${commit}/.claude/skills/commits/SKILL.md`]: {
+      status: 200,
+      body: '---\nname: commits\ndescription: Write commit messages.\n---\n',
+    },
+  });
+  const source = await openGitHub(`https://github.com/JetBrains/pinned/tree/${commit}`, { fetch: pinned, token: 'test' });
+  assert.equal(source.repository.commit, commit);
+  const result = await scan(source);
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(
+    result.skills.map((skill) => skill.path),
+    ['.claude/skills/commits/SKILL.md'],
+  );
+});
+
+test('a pinned ref that does not exist → a clear message', async () => {
+  const missing = replay({
+    'https://api.github.com/repos/JetBrains/pinned': { status: 200, body: { full_name: 'JetBrains/pinned', default_branch: 'main' } },
+    'https://api.github.com/repos/JetBrains/pinned/commits/no-such-branch': { status: 404, body: { message: 'Not Found' } },
+  });
+  await assert.rejects(openGitHub('https://github.com/JetBrains/pinned/tree/no-such-branch', { fetch: missing }), {
+    message: 'Not found in https://github.com/JetBrains/pinned: no-such-branch',
+  });
 });
 
 test('a broken link → a warning, the scan goes on', () => {
