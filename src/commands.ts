@@ -14,10 +14,12 @@ export type Context = {
   serve?(port: number): Promise<URL>;
 };
 
+const DEFAULT_PORT = 3000;
+
 const usage = `Usage: skill-atlas <command>
 
   scan <GitHub URL | directory>   find every SKILL.md in a repository and print it
-  serve [--port <port>]           open the web view on http://127.0.0.1:3000
+  serve [--port <port>]           open the web view on http://127.0.0.1:${DEFAULT_PORT}
   help                            show this help`;
 
 /** Runs one command; returns its exit code. */
@@ -25,7 +27,7 @@ export async function run(args: string[], context: Context): Promise<number> {
   const [command = 'help', ...rest] = args;
   try {
     if (command === 'scan') await scanCommand(rest, context);
-    else if (command === 'serve' && context.serve) await serveCommand(rest, context);
+    else if (command === 'serve' && context.serve) await serveCommand(rest, context.serve, context);
     else if (command === 'help') context.print(usage);
     else throw new AtlasError(`Unknown command: ${command}\n\n${usage}`);
     return 0;
@@ -43,13 +45,12 @@ async function scanCommand(args: string[], context: Context) {
   for (const warning of result.warnings) context.error(`warning: ${warning}`);
 }
 
-async function serveCommand(args: string[], context: Context) {
+async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, { print }: Context) {
   const usage = 'Usage: skill-atlas serve [--port <port>]';
   if (args.length !== 0 && (args.length !== 2 || args[0] !== '--port')) throw new AtlasError(usage);
-  const port = args.length ? Number(args[1]) : 3000;
+  const port = args.length ? Number(args[1]) : DEFAULT_PORT;
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new AtlasError(`Not a port: ${args[1]}\n${usage}`);
-  const url = await context.serve!(port);
-  context.print(`Skill Atlas: ${url.href}`);
+  print(`Skill Atlas: ${(await serve(port)).href}`);
 }
 
 /** `<owner>/<repo> · N skills`, then each skill's name, first sentence and link. */

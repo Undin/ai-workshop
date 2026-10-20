@@ -39,7 +39,8 @@ The front matter, else the directory; a root `SKILL.md`: the repository
 - Skipped, with one warning: `skipped N SKILL.md in test data`
 ## Architecture
 Core: fetch → find → parse. CLI: a *thin client*.
-Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
+Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text and its parts: the other
+front matter keys, the body
 ## Details
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - A tree too large for one answer: only `.agents/skills`, `.claude/skills`, `.github/skills`,

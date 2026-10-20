@@ -63,6 +63,8 @@ export async function scan(source: Source): Promise<ScanResult> {
         commit: source.repository.commit,
         copies: [...copies, ...linked].map((entry) => entry.file.path).sort(),
         text: primary.text,
+        properties: primary.properties,
+        body: primary.body,
       });
     }
   }

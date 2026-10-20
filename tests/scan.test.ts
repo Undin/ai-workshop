@@ -347,8 +347,11 @@ test('rate limit → a message that asks for GITHUB_TOKEN', async () => {
   });
 });
 
-test('a skill carries its SKILL.md text, as read', async () => {
+test('a skill carries its SKILL.md text, as read, and its parts', async () => {
   const result = await scan(await openSource(FIXTURE, { fetch: github }));
   const commits = result.skills.find((skill) => skill.path === '.claude/skills/commits/SKILL.md');
-  assert.equal(commits?.text, readFileSync(join(FIXTURE, '.claude/skills/commits/SKILL.md'), 'utf8'));
+  const text = readFileSync(join(FIXTURE, '.claude/skills/commits/SKILL.md'), 'utf8');
+  assert.equal(commits?.text, text);
+  const { properties, body } = parseSkill(text);
+  assert.deepEqual([commits?.properties, commits?.body], [properties, body]);
 });
