@@ -245,3 +245,71 @@ test('nothing is stored in the browser', async ({ page, context }) => {
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
   expect(await context.cookies()).toEqual([]);
 });
+
+// An organization: its own page, its repositories as they are scanned.
+
+const repositories = (page: Page) => page.getByRole('list', { name: 'Repositories' }).getByRole('listitem');
+
+test('an organization: its own page, each repository with its skill count as the CLI lists it, and the warnings', async ({ page }) => {
+  const cli = await atlas(['scan', 'https://github.com/JetBrains']);
+  const [title, ...lines] = cli.stdout.split('\n');
+  await scan(page, 'https://github.com/JetBrains');
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  const listed = lines.map((line) => line.split(' · '));
+  await expect(repositories(page).locator('.name')).toHaveText(listed.map(([name]) => name));
+  await expect(repositories(page).locator('.count')).toHaveText(listed.map(([, count]) => count));
+  await expect(page.getByRole('list', { name: 'Warnings' }).getByRole('listitem')).toHaveText(cli.stderr.split('\n'));
+  // Done: no progress left; not the page of one repository.
+  await expect(page.getByRole('status')).toBeHidden();
+  await expect(page.getByRole('navigation')).toBeHidden();
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent('https://github.com/JetBrains')}`);
+});
+
+test("an organization's repository is a link to its own page; back → the organization's page", async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains');
+  await expect(repositories(page).filter({ hasText: 'JetBrains/example' }).locator('.count')).toHaveText('1 skill');
+  await page.getByRole('link', { name: /^JetBrains\/example/ }).click();
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent('https://github.com/JetBrains/example')}`);
+  await expect(page.getByRole('heading', { name: 'JetBrains/example · 1 skill' })).toBeVisible();
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('commits');
+  await expect(page.getByRole('list', { name: 'Repositories' })).toBeHidden();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'JetBrains · 4 repositories' })).toBeVisible();
+  await expect(repositories(page)).toHaveCount(4);
+});
+
+test('an organization: every repository at once, each count as soon as it is scanned, and the progress', async ({ page }) => {
+  await scan(page, 'https://github.com/Slow');
+  await expect(page.getByRole('heading', { name: 'Slow · 2 repositories' })).toBeVisible();
+  await expect(repositories(page).locator('.count')).toHaveText(['0 skills', '…']);
+  await expect(page.getByRole('status')).toHaveText('Scanned 1 of 2 repositories…');
+  await expect(repositories(page).locator('.count')).toHaveText(['0 skills', '0 skills'], { timeout: SLOW_ANSWER_MS * 3 });
+  await expect(page.getByRole('status')).toBeHidden();
+});
+
+test('an organization: another scan while it runs → that one, the organization is not shown', async ({ page }) => {
+  await scan(page, 'https://github.com/Slow');
+  await expect(page.getByRole('status')).toHaveText('Scanned 1 of 2 repositories…');
+  await scan(page, 'https://github.com/JetBrains/example');
+  await expect(page.getByRole('heading', { name: 'JetBrains/example · 1 skill' })).toBeVisible();
+  await page.waitForTimeout(SLOW_ANSWER_MS + 500); // past the slow answer
+  await expect(page.getByRole('list', { name: 'Repositories' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'JetBrains/example · 1 skill' })).toBeVisible();
+});
+
+test('an organization, GitHub answers no more → its message, red, above; the repositories left `not scanned`', async ({ page }) => {
+  await scan(page, 'https://github.com/Limited');
+  await expect(page.getByRole('status')).toHaveText('GitHub rate limit reached; try again in a minute');
+  await expect(page.getByRole('status')).toHaveClass(/error/);
+  await expect(page.getByRole('heading', { name: 'Limited · 3 repositories' })).toBeVisible();
+  await expect(repositories(page).locator('.count')).toHaveText(['0 skills', 'not scanned', 'not scanned']);
+});
+
+test('an organization without repositories → `No repositories found`; one GitHub does not know → the CLI message', async ({ page }) => {
+  await scan(page, 'https://github.com/nobody');
+  await expect(page.getByRole('heading', { name: 'nobody · 0 repositories' })).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('No repositories found');
+  await scan(page, 'https://github.com/no-such-owner');
+  await expect(page.getByRole('status')).toHaveText('Organization not found: https://github.com/no-such-owner');
+  await expect(page.getByRole('list', { name: 'Repositories' })).toBeHidden();
+});

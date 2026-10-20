@@ -16,6 +16,15 @@ button[type='submit'] { font: inherit; padding: 0.4rem 1rem; border: 0; border-r
 #status.error { color: #d1242f; }
 main { display: grid; grid-template-columns: minmax(16rem, 24rem) 1fr; min-height: calc(100vh - 3.5rem); }
 main[hidden], [hidden] { display: none; }
+#organization { padding: 1rem 1.5rem; max-width: 50rem; }
+#organization h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+#organization-warnings li { font-size: 0.85rem; color: #9a6700; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
+#organization-warnings:not(:empty) { margin-bottom: 0.75rem; }
+#repositories a { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0.6rem; border-radius: 6px; color: inherit; text-decoration: none; }
+#repositories a:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+#repositories .name { font-weight: 600; flex: none; }
+#repositories .count { color: var(--muted); white-space: nowrap; }
+#repositories .count.error { color: #d1242f; white-space: normal; text-align: right; overflow-wrap: anywhere; }
 nav { border-right: 1px solid var(--border); padding: 1rem; overflow: auto; }
 nav h2 { font-size: 1rem; margin: 0 0 0.75rem; }
 ul { list-style: none; margin: 0; padding: 0; }

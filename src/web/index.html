@@ -12,7 +12,7 @@
     <h1>Skill Atlas</h1>
     <form id="scan" role="search">
       <label for="source">Repository</label>
-      <input id="source" name="source" type="text" placeholder="https://github.com/owner/repo or a directory" autocomplete="off" spellcheck="false">
+      <input id="source" name="source" type="text" placeholder="https://github.com/owner/repo, https://github.com/owner or a directory" autocomplete="off" spellcheck="false">
       <button type="submit">Scan</button>
     </form>
   </header>
@@ -36,5 +36,10 @@
       <div id="skill-body"></div>
     </article>
   </main>
+  <section id="organization" aria-labelledby="organization-name" hidden>
+    <h2 id="organization-name"></h2>
+    <ul id="organization-warnings" aria-label="Warnings"></ul>
+    <ul id="repositories" aria-label="Repositories"></ul>
+  </section>
 </body>
 </html>

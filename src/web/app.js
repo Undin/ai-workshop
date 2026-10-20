@@ -1,5 +1,6 @@
 // The web view's page: the repository field, its skills, and the chosen skill's SKILL.md, from
-// GET /api/scan. A SKILL.md is untrusted: its Markdown is sanitized before it is shown.
+// GET /api/scan; for an organization, its repositories as they are scanned, each linked to its
+// own page. A SKILL.md is untrusted: its Markdown is sanitized before it is shown.
 import { marked } from '/vendor/marked.js';
 import DOMPurify from '/vendor/purify.js';
 
@@ -8,6 +9,7 @@ const form = $('#scan');
 const input = $('#source');
 const status = $('#status');
 const main = $('main');
+const organization = $('#organization');
 const filter = $('#filter');
 
 // Links in a SKILL.md open outside the page.
@@ -53,6 +55,10 @@ async function scan(source) {
   show(`Scanning ${source || 'nothing'}…`);
   try {
     const response = await fetch(`/api/scan?source=${encodeURIComponent(source)}`, { signal: controller.signal });
+    // An organization: a line for each repository as it is scanned.
+    if (response.headers.get('content-type')?.startsWith('application/x-ndjson')) {
+      return await renderOrganization(lines(response.body), controller.signal);
+    }
     const answer = await response.json();
     if (controller.signal.aborted) return;
     if (!response.ok) return show(answer.error ?? `The server answered ${response.status}`, { error: true });
@@ -62,17 +68,18 @@ async function scan(source) {
   }
 }
 
-/** A message instead of the result, or above it with `withResult`; red with `error`. */
-function show(message, { withResult = false, error = false } = {}) {
+/** A message instead of a result, or above `view`: the repository's (`main`) or the organization's; red with `error`. */
+function show(message, { view, error = false } = {}) {
   status.hidden = !message;
   status.textContent = message;
   status.classList.toggle('error', error);
-  main.hidden = !withResult;
+  main.hidden = view !== main;
+  organization.hidden = view !== organization;
 }
 
 function render({ repository, skills, warnings }) {
-  show(skills.length ? '' : 'No skills found', { withResult: true });
-  $('#repository').textContent = `${repository.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`;
+  show(skills.length ? '' : 'No skills found', { view: main });
+  $('#repository').textContent = `${repository.id} · ${count(skills.length, 'skill', 'skills')}`;
   $('#warnings').replaceChildren(...warnings.map((warning) => element('li', `warning: ${warning}`)));
 
   const items = skills.map((skill) => {
@@ -101,6 +108,62 @@ function render({ repository, skills, warnings }) {
   else $('#skill').hidden = true;
 }
 
+/**
+ * The organization's repositories at once, each a link to its own page, then each one's skill
+ * count as it is scanned; the warnings as the CLI prints them.
+ */
+async function renderOrganization(answer, signal) {
+  const items = new Map();
+  const warnings = $('#organization-warnings');
+  let scanned = 0;
+  const progress = () => (scanned < items.size ? `Scanned ${scanned} of ${count(items.size, 'repository', 'repositories')}…` : '');
+  for await (const line of answer) {
+    if (signal.aborted) return;
+    if (line.organization) {
+      $('#organization-name').textContent = `${line.organization.id} · ${count(line.repositories.length, 'repository', 'repositories')}`;
+      warnings.replaceChildren();
+      $('#repositories').replaceChildren(
+        ...line.repositories.map(({ id, url }) => {
+          const link = element('a', '');
+          link.href = `/?source=${encodeURIComponent(url)}`;
+          const state = element('span', '…', 'count');
+          link.append(element('span', id, 'name'), state);
+          items.set(id, state);
+          const item = element('li', '');
+          item.append(link);
+          return item;
+        }),
+      );
+      show(line.repositories.length ? progress() : 'No repositories found', { view: organization });
+    } else if (line.id) {
+      const state = items.get(line.id);
+      state.textContent = line.error ? `not scanned: ${line.error}` : count(line.skills, 'skill', 'skills');
+      state.classList.toggle('error', !!line.error);
+      warnings.append(...(line.warnings ?? []).map((warning) => element('li', `warning: ${line.id}: ${warning}`)));
+      scanned++;
+      show(progress(), { view: organization });
+    } else {
+      // GitHub answers no more: the repositories left are not scanned.
+      for (const state of items.values()) if (state.textContent === '…') state.textContent = 'not scanned';
+      return show(line.error, { view: organization, error: true });
+    }
+  }
+}
+
+/** Each line of an NDJSON body, parsed, as it arrives. */
+async function* lines(body) {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  let rest = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const parts = (rest + value).split('\n');
+    rest = parts.pop();
+    for (const part of parts) if (part) yield JSON.parse(part);
+  }
+  if (rest) yield JSON.parse(rest);
+}
+
 /** Keeps the skills whose name or first sentence contains the filter's text, in any case; marks it there. */
 function applyFilter() {
   const text = filter.value.trim();
@@ -115,7 +178,7 @@ function applyFilter() {
     name.replaceChildren(...highlighted(skill.name, wanted));
     summary?.replaceChildren(...highlighted(skill.summary, wanted));
   }
-  $('#shown').textContent = shown ? `Showing ${shown} of ${listed.length} ${listed.length === 1 ? 'skill' : 'skills'}` : `No skills match ${text}`;
+  $('#shown').textContent = shown ? `Showing ${shown} of ${count(listed.length, 'skill', 'skills')}` : `No skills match ${text}`;
 }
 
 /** The skill's SKILL.md: the front matter as a table, the body as Markdown. */
@@ -158,6 +221,11 @@ function highlighted(text, wanted) {
   }
   parts.push(text.slice(end));
   return parts.filter((part) => part !== '');
+}
+
+/** `1 skill`, `2 skills`. */
+function count(number, one, many) {
+  return `${number} ${number === 1 ? one : many}`;
 }
 
 function alsoIn(skill) {

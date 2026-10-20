@@ -26,6 +26,15 @@ running one, and its result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - The warnings, as the CLI prints them
 - No skills → `No skills found`; an empty field → `Enter a GitHub repository URL or a directory`;
   an unreachable repository or not a GitHub URL → the same clear message as the CLI
+## Organization page
+- An organization URL (`https://github.com/<owner>`, [analysis.md](analysis.md), Organization) → its
+  own page instead: `JetBrains · 4 repositories`, then each **repository** as the CLI lists it,
+  in its order, all at once: its skill count once it is scanned, `…` until then, or `not scanned: <why>`
+- While it runs: `Scanned 1 of 4 repositories…`; when done, nothing; no repositories → `No repositories found`
+- A repository is a **link** to its page, `?source=https://github.com/<owner>/<repo>`: the page of
+  one repository above, a fresh scan; back → the organization's page, scanned again
+- The warnings, as the CLI prints them
+- GitHub answers no more → its message, red, above the repositories; the ones left: `not scanned`
 ## API
 - `GET /`: the page
 - `GET /api/scan?source=<link>`; not `HEAD`, which would scan for nothing → `{ repository, skills, warnings }`; each skill has its `link`,
