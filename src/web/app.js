@@ -55,12 +55,12 @@ async function scan(source) {
   }
 }
 
-/** A message instead of, or above, the result. */
-function show(message, result, error = false) {
+/** A message instead of the result, or above it with `withResult`. */
+function show(message, withResult, error = false) {
   status.hidden = !message;
   status.textContent = message;
   status.classList.toggle('error', error);
-  main.hidden = !result;
+  main.hidden = !withResult;
 }
 
 function render({ repository, skills, warnings }) {

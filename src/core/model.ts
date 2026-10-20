@@ -24,6 +24,10 @@ export type Skill = {
   copies: string[];
   /** The SKILL.md itself, as read: front matter and body. */
   text: string;
+  /** The front matter keys other than `name` and `description`. */
+  properties: Record<string, unknown>;
+  /** The Markdown after the front matter. */
+  body: string;
 };
 
 /**
