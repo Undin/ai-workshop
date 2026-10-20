@@ -120,28 +120,43 @@ A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally
 
 ### 7. Review comments
 
-Fetch everything reviewers wrote, all pages:
+[scripts/wait-for-review.ts](scripts/wait-for-review.ts) finds what reviewers wrote that is still
+unanswered, all pages, and waits for it:
 
 ```bash
-gh api --paginate repos/{owner}/{repo}/pulls/<pr>/reviews   # review summaries: body, html_url
-gh api --paginate repos/{owner}/{repo}/issues/<pr>/comments  # conversation comments: body, html_url
-gh api --paginate repos/{owner}/{repo}/pulls/<pr>/comments   # inline comments: id, in_reply_to_id
+node .agents/skills/implement-issue/scripts/wait-for-review.ts <pr> [--quiet <minutes>] [--interval <seconds>]
 ```
 
-Every reply this skill posts ends with the marker `<!-- implement-issue -->`. Status comments
-(ending with `<!-- implement-issue:started -->` or `<!-- code-review:started -->`) are neither
-review nor reply: skip them. Who wrote a comment
+It asks GitHub (`gh api`) right away, then every `--interval` seconds (`INTERVAL_SECONDS` in the
+script: 60), until there is something to answer or `--quiet` minutes (`QUIET_MINUTES`: 30) pass
+without any:
+
+- **exit 0**: stdout is a JSON list, oldest first, of what to answer:
+  - `{ "kind": "inline", "id", "url", "path", "line", "comments": [{ "author", "url", "body" }] }`:
+    a thread; `id` is its root comment (the one to reply to), `comments` the ones since the last
+    reply;
+  - `{ "kind": "conversation" | "review", "id", "url", "author", "body" }`: a conversation comment
+    or a review summary;
+- **exit 2**: stdout is `[]`: nothing to answer for the whole quiet period;
+- **exit 1**: an error (bad arguments, `gh` failed), on stderr.
+
+`--quiet 0` asks once, without waiting. Where a command can't run for 30 minutes (a tool's
+timeout), run it with `--quiet 9` again while it exits 2, until 30 minutes have passed in all.
+
+How it tells what is unanswered: every reply this skill posts ends with the marker
+`<!-- implement-issue -->`. Status comments (ending with `<!-- implement-issue:started -->` or
+`<!-- code-review:started -->`) are neither review nor reply: skipped. A marker counts only at the
+end of a comment: one quoted inside it doesn't. Who wrote a comment
 doesn't tell a review from a reply: the PR author reviews too, and on Air the reviewer and this
 session can be the same bot. So a comment with the marker is a reply, and every other one is
-review to answer. Review summaries with an empty body (approvals, reviews that only carry inline
-comments) have nothing to answer.
-
-What is still unanswered, by kind:
+review to answer. Review summaries whose first line is `LGTM` (code-review's approval, or its
+comment when it can't approve), pending ones and ones with an empty body (approvals, reviews that
+only carry inline comments) have nothing to answer.
 
 - **Inline comments**: a thread (root comment plus the ones whose `in_reply_to_id` is its `id`)
   is answered when a reply with the marker comes after the last comment without one.
 - **Conversation comments and review summaries** have no threads: one is answered only when a
-  later comment with the marker links to it (its `html_url`).
+  later comment with the marker links to it (its whole `html_url`).
 
 For each unanswered one:
 
@@ -158,9 +173,9 @@ For each unanswered one:
 Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch` until green. The
 pull request already exists: don't run `gh pr create` again.
 
-Then **wait for more review**: check for unanswered comments every minute (`sleep 60`). A new one
-is handled as above, and the wait starts over once CI is green again. After 30 minutes without a
-new comment, stop and go to step 8.
+Then **wait for more review**: run `wait-for-review.ts <pr>` again, once CI is green. A new comment
+is handled as above, and the wait starts over. After 30 minutes without a new comment (exit 2, or
+exit 2 every time with `--quiet 9`), stop and go to step 8.
 
 ### 8. Report
 
