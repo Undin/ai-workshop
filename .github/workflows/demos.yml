@@ -1,26 +1,21 @@
-# The demos of the web view (demos/*.demo.ts), on demand, apart from CI (ci.yml): each one recorded on
-# real repositories, its video an artifact of its own, `<name>.webm`, to link from a pull request's
-# description, and the screenshots of its key points another, `<name>-screenshots`. Run by hand or by a skill (implement-issue), on a branch:
-#   gh workflow run Demos --ref <branch> [-f demos='<name> <name>']
-# (GitHub runs it only once this file is on the default branch.) A demo asserts what it shows: a red
-# run is a demo or a feature that broke.
+# The demos of the web view (demos/*.demo.ts), all of them, on every push to a pull request, apart from
+# CI (ci.yml): each one recorded on real repositories, its video an artifact of its own, `<name>.webm`,
+# to link from the pull request's description, and the screenshots of its key points another,
+# `<name>-screenshots`, to commit into demos/<name>/ and show there. By hand, on a branch with no
+# pull request: gh workflow run Demos --ref <branch>
+# A demo asserts what it shows: a red run is a demo or a feature that broke.
 name: Demos
-run-name: "Demos: ${{ inputs.demos || 'all' }} on ${{ github.ref_name }}"
+run-name: "Demos on ${{ github.head_ref || github.ref_name }}"
 on:
+  pull_request:
   workflow_dispatch:
-    inputs:
-      demos:
-        description: "The demos to record, by name (demos/<name>.demo.ts), separated by spaces or commas; empty: all"
-        type: string
-        required: false
-        default: ''
 permissions:
   contents: read
 concurrency:
-  group: demos-${{ github.ref }}-${{ inputs.demos }}
+  group: demos-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  # The demos asked for (each one must exist), or all of them: their names, for the job below.
+  # Every demo: their names, for the job below.
   demo-list:
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -29,18 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: list
-        env:
-          DEMOS: ${{ inputs.demos }}
         run: |
-          if [ -n "$(echo "$DEMOS" | tr -d ', ')" ]; then
-            names=$(echo "$DEMOS" | tr ', ' '\n\n' | grep -v '^$' | sort -u)
-          else
-            names=$(ls demos/*.demo.ts | xargs -n1 basename | sed 's/\.demo\.ts$//')
-          fi
-          for name in $names; do
-            echo "$name" | grep -qx '[a-z0-9-]*' && [ -f "demos/$name.demo.ts" ] ||
-              { echo "::error::No demo $name: demos/$name.demo.ts"; exit 1; }
-          done
+          names=$(ls demos/*.demo.ts | xargs -n1 basename | sed 's/\.demo\.ts$//')
           echo "names=$(printf '%s\n' $names | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
   # Each demo, on real repositories as `npm run demo` does, its video an artifact of its own,
   # `<name>.webm`, to link from the pull request's description.
@@ -76,12 +61,11 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 90
-      # The screenshots of its key points, demos/<name>/<nn>-<point>.png, as far as it got (the demo
-      # empties the directory first: none of the committed ones).
+      # The screenshots of its key points, demos/out/<name>/<nn>-<point>.png, as far as it got.
       - uses: actions/upload-artifact@v7
         if: always() && steps.demo.outcome != 'skipped'
         with:
           name: ${{ matrix.name }}-screenshots
-          path: demos/${{ matrix.name }}/
+          path: demos/out/${{ matrix.name }}/
           if-no-files-found: warn
           retention-days: 90
