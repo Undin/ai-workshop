@@ -115,6 +115,15 @@ test('a conversation comment is answered by a later reply that links to it, not 
   ]);
 });
 
+test('a reply answers the comment its whole link names, not one whose link begins the same', (t) => {
+  const conversation = [
+    comment(12, 1, 'A question.'),
+    comment(123, 2, 'Another one.'),
+    comment(124, 3, `${PR}#issuecomment-123: answered.${REPLY}`, 'author'),
+  ];
+  assert.deepEqual(found(t, { conversation: [[conversation]] }).map((item: { id: number }) => item.id), [12]);
+});
+
 test('a review summary is answered by a later reply that links to it; LGTM, drafts and empty ones need none', (t) => {
   const reviews = [
     review(1, 1, 'Two points: …'),

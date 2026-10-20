@@ -72,8 +72,11 @@ async function unanswered(pr: number): Promise<Unanswered[]> {
 
   // No threads here: one is answered when a later reply links to it.
   const replies = conversation.filter((comment) => isReply(comment.body));
-  const linked = (url: string, at: string) =>
-    replies.some((reply) => reply.created_at >= at && reply.body.includes(url));
+  // The whole link: #issuecomment-12 is not #issuecomment-123.
+  const linked = (url: string, at: string) => {
+    const link = new RegExp(`${RegExp.escape(url)}(?!\\d)`);
+    return replies.some((reply) => reply.created_at >= at && link.test(reply.body));
+  };
   for (const comment of conversation) {
     if (isReply(comment.body) || isStatus(comment.body)) continue;
     if (linked(comment.html_url, comment.created_at)) continue;

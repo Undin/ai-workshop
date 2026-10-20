@@ -156,7 +156,7 @@ only carry inline comments) have nothing to answer.
 - **Inline comments**: a thread (root comment plus the ones whose `in_reply_to_id` is its `id`)
   is answered when a reply with the marker comes after the last comment without one.
 - **Conversation comments and review summaries** have no threads: one is answered only when a
-  later comment with the marker links to it (its `html_url`).
+  later comment with the marker links to it (its whole `html_url`).
 
 For each unanswered one:
 
@@ -174,8 +174,8 @@ Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch`
 pull request already exists: don't run `gh pr create` again.
 
 Then **wait for more review**: run `wait-for-review.ts <pr>` again, once CI is green. A new comment
-is handled as above, and the wait starts over. When it exits 2 (30 minutes without a new comment),
-stop and go to step 8.
+is handled as above, and the wait starts over. After 30 minutes without a new comment (exit 2, or
+exit 2 every time with `--quiet 9`), stop and go to step 8.
 
 ### 8. Report
 
