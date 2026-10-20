@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Pass `--comment [<pr>]` (e.g. from a JetBrains Air cloud task) to post the critical and major findings as inline review comments on the GitHub pull request, or approve it with LGTM when there are none. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Pass `--comment [<pr>]` (e.g. from a JetBrains Air cloud task) to announce the start in a pull request comment, then post the critical and major findings as inline review comments on the GitHub pull request, or approve it with LGTM when there are none. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
@@ -111,7 +111,7 @@ See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole
 
 ## On CI (`--comment`)
 
-`--comment [<pr>]` is for unattended runs, such as a JetBrains Air cloud task: the task prompt passes the flag, nothing is detected from the environment. It posts one review to the GitHub pull request:
+`--comment [<pr>]` is for unattended runs, such as a JetBrains Air cloud task: the task prompt passes the flag, nothing is detected from the environment. It announces the start in a comment on the GitHub pull request, then posts one review to it:
 
 - **Only critical and major findings are posted**, each as an inline comment on the code it's about. Normal and minor ones stay in the printed report only.
 - **No critical or major findings**: the review approves the pull request with the body `LGTM`.
@@ -124,6 +124,25 @@ See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole
 - The fixed point is the pull request's base: `git fetch origin <baseRefName>`, then `origin/<baseRefName>`.
 - `headRefOid` must equal `git rev-parse HEAD`; otherwise the line numbers would point at other code, so stop with an error.
 - If no spec is found in step 2, skip the Spec axis and say so in the review body.
+
+**Announce the start.** Once the pull request is read and `headRefOid` checked, before step 2, post a conversation comment saying the review has started, and keep its `id`:
+
+```bash
+gh api repos/{owner}/{repo}/issues/<number>/comments -f body='🔍 Code review started on <short headRefOid>.
+
+<!-- code-review:started -->' --jq .id
+```
+
+The marker `<!-- code-review:started -->` tells other automation (such as `implement-issue`) that this comment is a status, not review to answer; keep it on the last line. When the run ends, edit the comment instead of posting another, so the pull request gets no extra notification:
+
+```bash
+gh api repos/{owner}/{repo}/issues/comments/<id> --method PATCH -f body='<status>
+
+<!-- code-review:started -->'
+```
+
+- review posted: `🔍 Code review of <short headRefOid> done: <the review's html_url>`;
+- stopped with an error after the comment was posted: `🔍 Code review of <short headRefOid> failed: <the error, one line>`.
 
 **Anchor the findings.** A posted finding goes inline only if its `<path>:<line>` (and `<end line>`, for a range) lies inside a hunk of `gh pr diff <number>` on the new side. Everything else, including findings with `-` as location, goes into the review body.
 
@@ -166,7 +185,7 @@ With none, approve:
 - a line outside the diff: every posted finding in the body and no `comments`;
 - the token's user can't approve its own pull request: `"event": "COMMENT"` with the same `LGTM` body.
 
-Finally print the report from step 5 and the review's URL (`html_url` in the response) in the task output.
+Then edit the start comment to link to the review (see _Announce the start_). Finally print the report from step 5 and the review's URL (`html_url` in the response) in the task output.
 
 ## Why two axes
 
