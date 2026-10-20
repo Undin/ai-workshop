@@ -89,6 +89,9 @@ comment instead of posting a new one.
 - **e2e**: if the output on real repositories changes, run `UPDATE_EXPECTED=1 npm run e2e` and
   read the diff of `e2e/expected/`: every change must be one the spec explains.
 - **Docs**: update `README.md` if what the user sees or runs changed.
+- **Demo**: if the change is visible in the web view (`src/web/`, `spec/web.md`), follow
+  [demo-feature](../demo-feature/SKILL.md) once the feature's tests pass: a demo of exactly the
+  spec cases, a video and screenshots of its key points, committed with the screenshots.
 - **Commit** as you go, in a few logical steps as AGENTS.md describes (e.g. the spec with the
   feature and its tests, then the e2e expectations, then the docs). Messages in the style of
   `git log`; reference the issue (`#<n>`).
@@ -109,9 +112,12 @@ again that each spec case (from step 2, or with `--pr` from the pull request bod
 
 ```bash
 git push -u origin <branch>
-gh pr create --base main --title "<what>" --body "<what and why; the spec cases; Closes #<n>>"
+gh pr create --base main --title "<what>" --body "<what and why; the spec cases; the demo; Closes #<n>>"
 gh pr checks <pr> --watch
 ```
+
+The demo, if step 4 made one: its `## Demo` section as [demo-feature](../demo-feature/SKILL.md)
+describes, the screenshots linked at the pushed commit.
 
 Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
 
@@ -186,9 +192,9 @@ exit 2 every time with `--quiet 9`), or as soon as it exits 3, stop and go to st
 
 ### 8. Report
 
-The pull request URL, the CI status, each spec case (from step 2, or with `--pr` from the pull
-request body) with the test that covers it, the comments addressed, and anything still open for
-the user.
+The pull request URL, the CI status, the demo's video path (to drag into the description), each
+spec case (from step 2, or with `--pr` from the pull request body) with the test that covers it,
+the comments addressed, and anything still open for the user.
 
 With `--pr`, edit the pull request's status comment:
 `🛠️ Done addressing the review comments: <how many>; CI <green | red>.`
