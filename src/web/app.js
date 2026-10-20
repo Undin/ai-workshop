@@ -39,26 +39,26 @@ function start() {
   if (source) return scan(source);
   // Back to no repository: a scan still running must not show its result here.
   current?.abort();
-  show('', false);
+  show('');
 }
 
 async function scan(source) {
   current?.abort();
   const controller = (current = new AbortController());
-  show(`Scanning ${source || 'nothing'}…`, false);
+  show(`Scanning ${source || 'nothing'}…`);
   try {
     const response = await fetch(`/api/scan?source=${encodeURIComponent(source)}`, { signal: controller.signal });
     const answer = await response.json();
     if (controller.signal.aborted) return;
-    if (!response.ok) return show(answer.error ?? `The server answered ${response.status}`, false, true);
+    if (!response.ok) return show(answer.error ?? `The server answered ${response.status}`, { error: true });
     render(answer);
   } catch (error) {
-    if (!controller.signal.aborted) show(`Cannot reach the Skill Atlas server: ${error.message}`, false, true);
+    if (!controller.signal.aborted) show(`Cannot reach the Skill Atlas server: ${error.message}`, { error: true });
   }
 }
 
-/** A message instead of the result, or above it with `withResult`. */
-function show(message, withResult, error = false) {
+/** A message instead of the result, or above it with `withResult`; red with `error`. */
+function show(message, { withResult = false, error = false } = {}) {
   status.hidden = !message;
   status.textContent = message;
   status.classList.toggle('error', error);
@@ -66,7 +66,7 @@ function show(message, withResult, error = false) {
 }
 
 function render({ repository, skills, warnings }) {
-  show(skills.length ? '' : 'No skills found', true);
+  show(skills.length ? '' : 'No skills found', { withResult: true });
   $('#repository').textContent = `${repository.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`;
   $('#warnings').replaceChildren(...warnings.map((warning) => element('li', `warning: ${warning}`)));
 

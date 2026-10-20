@@ -17,13 +17,15 @@ export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link:
 /** What a request that cannot be answered gets instead. */
 export type ErrorAnswer = { error: string };
 
-/** The names the server answers to; the first is the one it prints. */
-const HOSTS = ['127.0.0.1', 'localhost'];
+/** The address the server listens on and prints: `localhost` may resolve to ::1 first. */
+const ADDRESS = '127.0.0.1';
+/** The names the server answers to. */
+const HOSTS = [ADDRESS, 'localhost'];
 
 const web = (file: string) => fileURLToPath(new URL(`web/${file}`, import.meta.url));
 
-/** The files the page loads: its own, and the browser builds of its two libraries. */
 const JS = 'text/javascript; charset=utf-8';
+/** The files the page loads: its own, and the browser builds of its two libraries. */
 const FILES: Record<string, { path: string; type: string }> = {
   '/': { path: web('index.html'), type: 'text/html; charset=utf-8' },
   '/app.js': { path: web('app.js'), type: JS },
@@ -51,10 +53,9 @@ export function listen(server: Server, port: number): Promise<URL> {
     server.once('error', (error: NodeJS.ErrnoException) =>
       reject(error.code === 'EADDRINUSE' ? new AtlasError(`Port ${port} is in use; try --port <another>`) : error),
     );
-    server.listen(port, HOSTS[0], () => {
+    server.listen(port, ADDRESS, () => {
       const address = server.address();
-      // The address it listens on: `localhost` may resolve to ::1 first.
-      resolve(new URL(`http://${HOSTS[0]}:${typeof address === 'object' && address ? address.port : port}/`));
+      resolve(new URL(`http://${ADDRESS}:${typeof address === 'object' && address ? address.port : port}/`));
     });
   });
 }
@@ -71,13 +72,14 @@ export function isServedHost(host: string | undefined, port: number): boolean {
 async function handle(request: IncomingMessage, response: ServerResponse, open: ServerOptions['open']) {
   const port = request.socket.localPort ?? 0;
   if (!isServedHost(request.headers.host, port)) {
-    return send(response, 403, { error: `Not served to ${request.headers.host ?? 'no host'}: open http://${HOSTS[0]}:${port}/` });
+    return send(response, 403, { error: `Not served to ${request.headers.host ?? 'no host'}: open http://${ADDRESS}:${port}/` });
   }
   const url = new URL(request.url ?? '/', 'http://localhost');
+  const scanning = url.pathname === '/api/scan';
   // A scan only for GET: HEAD would scan for nothing.
-  const methods = url.pathname === '/api/scan' ? ['GET'] : ['GET', 'HEAD'];
+  const methods = scanning ? ['GET'] : ['GET', 'HEAD'];
   if (!methods.includes(request.method ?? '')) return send(response, 405, { error: `Only ${methods.join(' and ')}` });
-  if (url.pathname === '/api/scan') return send(response, ...(await scanAnswer(url.searchParams.get('source'), open)));
+  if (scanning) return send(response, ...(await scanAnswer(url.searchParams.get('source'), open)));
   const file = FILES[url.pathname];
   if (!file) return send(response, 404, { error: `Not found: ${url.pathname}` });
   response.writeHead(200, { 'Content-Type': file.type, 'Content-Security-Policy': POLICY, 'Cache-Control': 'no-store' });

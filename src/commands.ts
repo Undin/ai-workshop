@@ -22,7 +22,7 @@ function usage({ serve }: Context): string {
     'Usage: skill-atlas <command>',
     '',
     '  scan <GitHub URL | directory>   find every SKILL.md in a repository and print it',
-    ...(serve ? [`  serve [--port <port>]           open the web view on http://127.0.0.1:${DEFAULT_PORT}`] : []),
+    ...(serve ? [`  serve [--port <port>]           open the web view, on port ${DEFAULT_PORT} by default`] : []),
     '  help                            show this help',
   ].join('\n');
 }
@@ -53,10 +53,10 @@ async function scanCommand(args: string[], context: Context) {
 async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, { print }: Context) {
   const serveUsage = 'Usage: skill-atlas serve [--port <port>]';
   if (args.length !== 0 && (args.length !== 2 || args[0] !== '--port')) throw new AtlasError(serveUsage);
+  if (args.length === 0) return print(`Skill Atlas: ${(await serve(DEFAULT_PORT)).href}`);
   // Digits only: Number() would also take '', 0x1F90 and 1e3.
-  const port = args.length ? (/^\d+$/.test(args[1]) ? Number(args[1]) : NaN) : DEFAULT_PORT;
-  if (!(port >= 0 && port <= 65535)) throw new AtlasError(`Not a port: ${args[1]}\n${serveUsage}`);
-  print(`Skill Atlas: ${(await serve(port)).href}`);
+  if (!/^\d+$/.test(args[1]) || Number(args[1]) > 65535) throw new AtlasError(`Not a port: ${args[1]}\n${serveUsage}`);
+  print(`Skill Atlas: ${(await serve(Number(args[1]))).href}`);
 }
 
 /** `<owner>/<repo> · N skills`, then each skill's name, first sentence and link. */
