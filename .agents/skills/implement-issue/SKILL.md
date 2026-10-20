@@ -127,8 +127,9 @@ unanswered, all pages, and waits for it:
 node .agents/skills/implement-issue/scripts/wait-for-review.ts <pr> [--quiet <minutes>] [--interval <seconds>]
 ```
 
-It asks GitHub (`gh api`) right away, then every `--interval` seconds (60), until there is
-something to answer or `--quiet` minutes (30) pass without any:
+It asks GitHub (`gh api`) right away, then every `--interval` seconds (`INTERVAL_SECONDS` in the
+script: 60), until there is something to answer or `--quiet` minutes (`QUIET_MINUTES`: 30) pass
+without any:
 
 - **exit 0**: stdout is a JSON list, oldest first, of what to answer:
   - `{ "kind": "inline", "id", "url", "path", "line", "comments": [{ "author", "url", "body" }] }`:

@@ -6,6 +6,10 @@ import { execFile } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { promisify } from 'node:util';
 
+/** How long to wait without new review before giving up (`--quiet`). */
+const QUIET_MINUTES = 30;
+/** How often to ask GitHub (`--interval`). */
+const INTERVAL_SECONDS = 60;
 const USAGE = 'Usage: wait-for-review.ts <pr> [--quiet <minutes>] [--interval <seconds>]';
 /** Ends every reply the skill posts. */
 const REPLY = '<!-- implement-issue -->';
@@ -96,8 +100,8 @@ function amount(text: string | undefined, what: string): number {
 
 function parse(args: string[]) {
   let pr: number | undefined;
-  let quiet = 30;
-  let interval = 60;
+  let quiet = QUIET_MINUTES;
+  let interval = INTERVAL_SECONDS;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--quiet') quiet = amount(args[++i], 'minutes');
