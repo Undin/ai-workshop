@@ -135,7 +135,8 @@ git diff --name-only origin/main...HEAD -- 'demos/*.demo.ts'   # demos/<name>.de
 
 The Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)) is not part of CI: it runs
 only when asked, records the demos it is given on real repositories, and keeps each video as an
-artifact of its own, `<name>.webm`. Once CI is green, run it on the branch for exactly those demos,
+artifact of its own, `<name>.webm`, and its key point screenshots as another, `<name>-screenshots`
+(a zip: to check the run against the video, not to link; the description shows the committed ones). Once CI is green, run it on the branch for exactly those demos,
 and wait for it:
 
 ```bash
@@ -146,7 +147,8 @@ run=$(gh run list --workflow Demos --event workflow_dispatch --branch <branch> -
 gh run watch "$run" --exit-status
 ```
 
-A red run is a demo failing on real repositories: its video is still kept, and shows where; read it
+A red run is a demo failing on real repositories: its video and the screenshots it got to are still
+kept, and show where; read it
 (`gh run view "$run" --log-failed`), fix it as a red check above, and run it again. `gh workflow
 run` fails while demos.yml is not on the default branch yet: say so in the report, no links.
 

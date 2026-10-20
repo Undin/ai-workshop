@@ -1,6 +1,6 @@
 # The demos of the web view (demos/*.demo.ts), on demand, apart from CI (ci.yml): each one recorded on
 # real repositories, its video an artifact of its own, `<name>.webm`, to link from a pull request's
-# description. Run by hand or by a skill (implement-issue), on a branch:
+# description, and the screenshots of its key points another, `<name>-screenshots`. Run by hand or by a skill (implement-issue), on a branch:
 #   gh workflow run Demos --ref <branch> [-f demos='<name> <name>']
 # (GitHub runs it only once this file is on the default branch.) A demo asserts what it shows: a red
 # run is a demo or a feature that broke.
@@ -63,14 +63,25 @@ jobs:
       - run: npx playwright install --with-deps chromium
       # For the waits a demo plays faster (faster() in demos/demo.ts).
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
-      - run: npm run demo -- "$NAME.demo.ts"
+      - id: demo
+        run: npm run demo -- "$NAME.demo.ts"
         env:
           NAME: ${{ matrix.name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Even when the demo failed, so that it shows where; not when it never ran.
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: always() && steps.demo.outcome != 'skipped'
         with:
           path: demos/out/${{ matrix.name }}.webm
           archive: false
           if-no-files-found: error
+          retention-days: 90
+      # The screenshots of its key points, demos/<name>/<nn>-<point>.png, as far as it got (the demo
+      # empties the directory first: none of the committed ones).
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.demo.outcome != 'skipped'
+        with:
+          name: ${{ matrix.name }}-screenshots
+          path: demos/${{ matrix.name }}/
+          if-no-files-found: warn
           retention-days: 90
