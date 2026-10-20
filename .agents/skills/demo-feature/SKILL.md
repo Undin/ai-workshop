@@ -1,6 +1,6 @@
 ---
 name: demo-feature
-description: "Record a demo of a new or changed feature of the web view for its pull request: a Playwright script, demos/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm, local) and screenshots of its key points (demos/<name>/<nn>-<point>.png, committed and shown in the pull request). Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
+description: "Record a demo of a new or changed feature of the web view for its pull request: a Playwright script, demos/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm) and screenshots of its key points (demos/<name>/<nn>-<point>.png); on GitHub, the Demos workflow records it again, and its screenshots are the ones committed and shown in the pull request with a link to its video. Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
 ---
 
 Takes the feature (an issue, a pull request, or the spec cases of the change) and makes a demo of
@@ -97,27 +97,25 @@ on screen long enough; nothing important is cut off or below the fold; no stretc
 
 ### 5. Commit
 
-The demo script and its screenshots, `demos/<name>.demo.ts` and `demos/<name>/`, in one commit
-(`Demo: <the feature> (#<n>)`); `demos/out/` is not committed. A demo of a changed feature:
-its screenshots are replaced by the run, the removed ones deleted (the run empties
-`demos/<name>/` first).
+The demo script, `demos/<name>.demo.ts`, in one commit (`Demo: <the feature> (#<n>)`);
+`demos/out/` is never committed.
+
+The screenshots committed, `demos/<name>/`, are the ones of a run on GitHub, the Demos workflow
+([demos.yml](../../../.github/workflows/demos.yml)): from implement-issue, its step 6 runs it and
+commits them. The local ones were for looking at: put `demos/<name>/` back as it was
+(`git restore demos/<name>/ && git clean -fd demos/<name>/`). Asked for a demo directly, outside
+implement-issue: run the workflow the same way (implement-issue step 6), or, if it can't run yet
+(not on the default branch), commit the local screenshots and say so.
 
 ### 6. Into the pull request
 
-In the pull request description (implement-issue: its step 6, in `gh pr create --body`), a
-`## Demo` section: one line on what it shows, and each screenshot, linked at the pushed commit so
-it stays as it was:
-
-```markdown
-![<point>](https://github.com/<owner>/<repo>/raw/<commit>/demos/<name>/<nn>-<point>.png)
-```
-
-Updating the description of an existing pull request (`gh pr edit --body`) changes what
-reviewers see: ask first, unless this run is the one creating it.
+implement-issue step 7 puts a `## Demo` section in the pull request's description: for each demo
+its screenshots inline, linked at their commit, and a link to its video, the `<name>.webm`
+artifact of the Demos run. Updating the description of an existing pull request
+(`gh pr edit --body`) changes what reviewers see: ask first, unless this run is the one creating it.
 
 ### 7. Report
 
 The demo's file, its length (seconds; sped-up parts with their factors), the key points with their
 screenshots, and anything it could not show. The local video, `demos/out/<name>.webm`, is for
-looking at it; the Demos workflow (`.github/workflows/demos.yml`, run on demand: implement-issue
-step 6) records it again on GitHub and keeps the video as an artifact to link.
+looking at it; the one to link is the Demos run's.
