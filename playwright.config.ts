@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 const port = 3100;
 
 export default defineConfig({
-  testDir: 'e2e',
+  testDir: 'tests/web',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',

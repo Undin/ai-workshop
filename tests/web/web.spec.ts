@@ -1,8 +1,9 @@
 // The decisions in spec/web.md, checked in a browser on the page that `skill-atlas serve` serves:
 // ./fixture, and GitHub repositories answered in tests/helpers.ts and tests/serve-test.ts.
+// In tests/web, not e2e/: these never reach the network; e2e/ is the CLI on real repositories.
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { atlas, EXAMPLE_COMMIT, FIXTURE } from '../tests/helpers.ts';
+import { atlas, EXAMPLE_COMMIT, FIXTURE } from '../helpers.ts';
 
 /** Types the repository link into the field and scans it. */
 async function scan(page: Page, source: string, how: 'enter' | 'button' = 'enter') {

@@ -1,4 +1,4 @@
-// The web view for the browser tests in e2e/: `skill-atlas serve`, with GitHub answering from
+// The web view for the browser tests in tests/web/: `skill-atlas serve`, with GitHub answering from
 // the recordings in tests/helpers.ts and below, never from the network.
 import { replay, type Recording } from '../src/core/replay.ts';
 import { createAtlasServer, listen } from '../src/server.ts';

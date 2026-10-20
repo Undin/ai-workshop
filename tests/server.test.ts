@@ -1,5 +1,5 @@
 // The decisions in spec/web.md that the server makes: the page, and the scan as JSON, the same as
-// what the CLI prints. What the page does with it is in e2e/web.spec.ts.
+// what the CLI prints. What the page does with it is in tests/web/web.spec.ts.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
