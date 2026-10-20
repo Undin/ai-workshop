@@ -53,10 +53,11 @@ async function scanCommand(args: string[], context: Context) {
 async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, { print }: Context) {
   const serveUsage = 'Usage: skill-atlas serve [--port <port>]';
   if (args.length !== 0 && (args.length !== 2 || args[0] !== '--port')) throw new AtlasError(serveUsage);
-  if (args.length === 0) return print(`Skill Atlas: ${(await serve(DEFAULT_PORT)).href}`);
   // Digits only: Number() would also take '', 0x1F90 and 1e3.
-  if (!/^\d+$/.test(args[1]) || Number(args[1]) > 65535) throw new AtlasError(`Not a port: ${args[1]}\n${serveUsage}`);
-  print(`Skill Atlas: ${(await serve(Number(args[1]))).href}`);
+  if (args.length && (!/^\d+$/.test(args[1]) || Number(args[1]) > 65535)) {
+    throw new AtlasError(`Not a port: ${args[1]}\n${serveUsage}`);
+  }
+  print(`Skill Atlas: ${(await serve(args.length ? Number(args[1]) : DEFAULT_PORT)).href}`);
 }
 
 /** `<owner>/<repo> · N skills`, then each skill's name, first sentence and link. */
