@@ -7,16 +7,16 @@ if [ "${AIR_STARTUP_MODE:-}" = warmup ]; then WARMUP=1; else WARMUP=; fi
 
 cd "$(dirname "$0")/../.."
 
-# The same checks CI runs: typecheck, tests, and the real CLI on the fixture repository.
+# The environment, not the code (CI tests that): the toolchain typechecks, the real CLI runs on the
+# fixture repository, Chromium launches.
 healthcheck() {
   echo "[healthcheck] typecheck"
   npm run typecheck
-  # Without the browser tests: they need Chromium, which CI installs (npm run test:web there).
-  echo "[healthcheck] tests"
-  npm run test:unit
   echo "[healthcheck] CLI smoke on ./fixture"
   ./skill-atlas help >/dev/null
   ./skill-atlas scan ./fixture
+  echo "[healthcheck] chromium launches"
+  node -e "const { chromium } = await import('@playwright/test'); await (await chromium.launch()).close()"
   echo "[healthcheck] OK"
 }
 
@@ -30,6 +30,17 @@ fi
 echo "[startup] npm ci"
 npm ci --no-audit --no-fund
 echo "[startup] dependencies installed"
+
+# Chromium for the browser tests (npm run test:web), as CI installs it: the browser into the
+# user's cache, its system libraries through apt, which needs root
+echo "[startup] playwright chromium"
+npx playwright install chromium
+if [ "$(id -u)" -eq 0 ]; then
+  npx playwright install-deps chromium
+else
+  sudo -n env PATH="$PATH" npx playwright install-deps chromium
+fi
+echo "[startup] chromium installed"
 
 if [ -n "$WARMUP" ]; then healthcheck; fi
 echo "[startup] done"
