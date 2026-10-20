@@ -1,4 +1,4 @@
-# CI for your Skill Atlas repository: the typecheck, the tests and the CLI itself, on every push
+# CI for your Skill Atlas repository: the typecheck, the tests (in a browser too) and the CLI itself, on every push
 # and pull request, on a clean machine. A pull request is ready when this is green.
 name: CI
 on:
@@ -20,10 +20,23 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm test
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
       # The real CLI on the fixture repository, as a user would run it: it must exit 0.
       - name: Smoke test
         run: |
           ./skill-atlas help
           ./skill-atlas scan ./fixture
+          ./skill-atlas serve --port 3000 & server=$!
+          trap 'kill $server' EXIT
+          curl --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --fail http://localhost:3000/ > /dev/null
+          curl --silent --show-error --fail 'http://localhost:3000/api/scan?source=./fixture' > /dev/null

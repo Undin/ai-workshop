@@ -7,5 +7,5 @@ Integration tests for every case in the spec.
 - All tests pass locally
 
 ## Commands
-- `npm ci`: first, in a fresh checkout
-- `npm test`: the tests
+- `npm ci`, then `npx playwright install chromium`: first, in a fresh checkout
+- `npm test`: the tests; `npm run test:unit` without a browser, `npm run test:web` the web view in Chromium
