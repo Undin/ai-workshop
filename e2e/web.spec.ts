@@ -37,6 +37,21 @@ test('the Scan button scans too', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'fixture · 10 skills' })).toBeVisible();
 });
 
+test('a long first sentence: at most two lines in the list, whole on hover', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/long');
+  const summary = skills(page).locator('.summary');
+  const sentence = `${'Explains every step of a very long procedure, '.repeat(8)}in detail.`;
+  await expect(summary).toHaveText(sentence);
+  await expect(summary).toHaveAttribute('title', sentence);
+  const { height, line, scrollHeight } = await summary.evaluate((node) => ({
+    height: node.getBoundingClientRect().height,
+    line: parseFloat(node.ownerDocument.defaultView!.getComputedStyle(node).lineHeight),
+    scrollHeight: node.scrollHeight,
+  }));
+  expect(Math.round(height / line)).toBe(2);
+  expect(scrollHeight).toBeGreaterThan(height); // the rest is cut, not wrapped below
+});
+
 test('copies: `also in <paths>`', async ({ page }) => {
   await scan(page, FIXTURE);
   await expect(skills(page).filter({ hasText: /^commits/ }).locator('.copies')).toHaveText('also in .github/skills/commits/SKILL.md');

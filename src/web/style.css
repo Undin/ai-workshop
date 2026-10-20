@@ -26,6 +26,8 @@ ul { list-style: none; margin: 0; padding: 0; }
 #skills button[aria-current] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 #skills .name { display: block; font-weight: 600; }
 #skills .summary, #skills .copies { display: block; font-size: 0.85rem; color: var(--muted); }
+/* At most two lines; the title has the whole sentence. */
+#skills .summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 article { padding: 1rem 2rem; overflow: auto; max-width: 60rem; }
 article h2 { margin: 0; }
 #skill-link { font-family: ui-monospace, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
