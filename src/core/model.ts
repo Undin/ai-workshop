@@ -22,6 +22,12 @@ export type Skill = {
   commit: string;
   /** The same skill in other agents' folders. */
   copies: string[];
+  /** The SKILL.md itself, as read: front matter and body. */
+  text: string;
+  /** The front matter keys other than `name` and `description`. */
+  properties: Record<string, unknown>;
+  /** The Markdown after the front matter. */
+  body: string;
 };
 
 /**
@@ -37,4 +43,10 @@ export function skillLink(repository: Repository, skill: Skill): string {
 export function sortSkills(skills: Skill[]): Skill[] {
   const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return [...skills].sort((a, b) => compare(a.name, b.name) || compare(a.path, b.path));
+}
+
+/** The description's first sentence, on one line: what a list of skills shows. */
+export function firstSentence(text: string): string {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return /^.*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
 }

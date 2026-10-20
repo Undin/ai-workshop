@@ -18,6 +18,6 @@ Integration tests for every case in the spec.
 - The pull request's CI is green
 
 ## Commands
-- `npm ci`: first, in a fresh checkout
-- `npm test`: the tests
+- `npm ci`, then `npx playwright install chromium`: first, in a fresh checkout
+- `npm test`: the tests; `npm run test:unit` without a browser, `npm run test:web` the web view in Chromium
 - `npm run e2e`: the real CLI on real repositories ([e2e/](e2e/)); needs the network and `GITHUB_TOKEN`
