@@ -206,7 +206,8 @@ test('skill-atlas serve: a bad port → a clear message, exit code 1', async () 
 });
 
 test('skill-atlas serve: other arguments → the usage, exit code 1', async () => {
-  for (const args of [['--port'], ['80'], ['--port', '80', '81'], ['--host', '80']]) {
+  // The shape is checked before the port: a bad port with extra arguments gets the usage too.
+  for (const args of [['--port'], ['80'], ['--port', '80', '81'], ['--port', 'many', '81'], ['--port=80'], ['--host', '80']]) {
     const expected = { code: 1, ports: [], stderr: 'Usage: skill-atlas serve [--port <port>]' };
     assert.deepEqual(await serveWith(args), expected, args.join(' '));
   }
