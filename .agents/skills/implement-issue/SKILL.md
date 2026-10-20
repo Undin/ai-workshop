@@ -128,8 +128,8 @@ node .agents/skills/implement-issue/scripts/wait-for-review.ts <pr> [--quiet <mi
 ```
 
 It asks GitHub (`gh api`) right away, then every `--interval` seconds (`INTERVAL_SECONDS` in the
-script: 60), until there is something to answer or `--quiet` minutes (`QUIET_MINUTES`: 30) pass
-without any:
+script: 60), until there is something to answer, `--quiet` minutes (`QUIET_MINUTES`: 30) pass
+without any, or no more review is to come:
 
 - **exit 0**: stdout is a JSON list, oldest first, of what to answer:
   - `{ "kind": "inline", "id", "url", "path", "line", "comments": [{ "author", "url", "body" }] }`:
@@ -138,6 +138,13 @@ without any:
   - `{ "kind": "conversation" | "review", "id", "url", "author", "body" }`: a conversation comment
     or a review summary;
 - **exit 2**: stdout is `[]`: nothing to answer for the whole quiet period;
+- **exit 3**: no more review to wait for, the reason on stderr; stdout is the same JSON list of what
+  is still unanswered:
+  - the pull request is **merged or closed**: the list may hold review, but there is nothing to fix
+    it on any more; don't change the code, leave it to the user in step 8;
+  - a **maintainer approved** it (a reviewer the repository calls `OWNER`, `MEMBER` or
+    `COLLABORATOR`, not a bot such as Air's; their latest approval, change request or dismissal counts)
+    and everything is answered: stdout is `[]`. With review still unanswered it exits 0 instead;
 - **exit 1**: an error (bad arguments, `gh` failed), on stderr.
 
 `--quiet 0` asks once, without waiting. Where a command can't run for 30 minutes (a tool's
@@ -175,7 +182,7 @@ pull request already exists: don't run `gh pr create` again.
 
 Then **wait for more review**: run `wait-for-review.ts <pr>` again, once CI is green. A new comment
 is handled as above, and the wait starts over. After 30 minutes without a new comment (exit 2, or
-exit 2 every time with `--quiet 9`), stop and go to step 8.
+exit 2 every time with `--quiet 9`), or as soon as it exits 3, stop and go to step 8.
 
 ### 8. Report
 
