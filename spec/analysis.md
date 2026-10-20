@@ -38,6 +38,7 @@ Skill: id = `repo:path`, name, description, commit
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - A tree too large for one answer: only `.agents/skills`, `.claude/skills`, `.github/skills`,
   `agent/skills` are listed, with a warning
+- With `GITHUB_TOKEN`, through *code search*: it finds files only, so symbolic links are not seen
 - The link pins the *scanned commit*
 - Malformed front matter → a *warning*, the scan goes on
 - Unreachable repository → a clear message, exit code 1

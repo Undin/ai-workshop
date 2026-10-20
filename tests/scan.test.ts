@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import { openGitHub } from '../src/core/github.ts';
 import { parseSkill } from '../src/core/parse.ts';
 import { replay } from '../src/core/replay.ts';
+import { scan } from '../src/core/scan.ts';
 import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
 
 const fixture = await atlas(['scan', FIXTURE]);
@@ -201,6 +202,38 @@ test('a link to a skills/ directory → each skill in it gets a copy', () => {
   // `.cursor/…` sorts before `skills/…`, yet the link's target is the skill.
   assert.deepEqual(skill('skills/changelog/SKILL.md')?.also, ['.cursor/skills/changelog/SKILL.md']);
   assert.ok(!listed('.cursor/skills/changelog/SKILL.md'));
+});
+
+test('on GitHub, without a token: a link in the tree is read from its blob and followed', async () => {
+  const commit = EXAMPLE_COMMIT;
+  const linked = replay({
+    'https://api.github.com/repos/JetBrains/linked': { status: 200, body: { full_name: 'JetBrains/linked', default_branch: 'main' } },
+    'https://api.github.com/repos/JetBrains/linked/commits/main': { status: 200, body: { sha: commit } },
+    [`https://api.github.com/repos/JetBrains/linked/git/trees/${commit}?recursive=1`]: {
+      status: 200,
+      body: {
+        truncated: false,
+        tree: [
+          { path: '.claude/skills/commits/SKILL.md', mode: '100644', type: 'blob', sha: 'file' },
+          { path: '.github/skills', mode: '120000', type: 'blob', sha: 'link' },
+        ],
+      },
+    },
+    'https://api.github.com/repos/JetBrains/linked/git/blobs/link': {
+      status: 200,
+      body: { content: `${btoa('../.claude/skills')}\n`, encoding: 'base64' },
+    },
+    [`https://raw.githubusercontent.com/JetBrains/linked/${commit}/.claude/skills/commits/SKILL.md`]: {
+      status: 200,
+      body: '---\nname: commits\ndescription: Write commit messages.\n---\n',
+    },
+  });
+  const result = await scan(await openGitHub('https://github.com/JetBrains/linked', { fetch: linked }));
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(
+    result.skills.map((skill) => [skill.path, skill.copies]),
+    [['.claude/skills/commits/SKILL.md', ['.github/skills/commits/SKILL.md']]],
+  );
 });
 
 test('a broken link → a warning, the scan goes on', () => {
