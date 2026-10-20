@@ -1,0 +1,1 @@
+warning: the tree is too large to list at once; looked only in .agents/skills, .claude/skills, .github/skills, agent/skills

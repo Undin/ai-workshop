@@ -27,3 +27,17 @@ jobs:
         run: |
           ./skill-atlas help
           ./skill-atlas scan ./fixture
+  # The real CLI on real GitHub repositories, pinned to a commit, against e2e/expected/.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run e2e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
