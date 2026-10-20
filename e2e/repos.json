@@ -1,0 +1,5 @@
+[
+  { "name": "JetBrains-MPS", "url": "https://github.com/JetBrains/MPS/tree/d7e4f5c1394535b05e90dde6e3e7e8a3f3e174a2" },
+  { "name": "JetBrains-android", "url": "https://github.com/JetBrains/android/tree/0a40d23123eb4d6d7842dee26cdf5b0d8a96ea78" },
+  { "name": "JetBrains-koog", "url": "https://github.com/JetBrains/koog/tree/22e342e033c716f835312dd6cbe83193e1cbcf76" }
+]

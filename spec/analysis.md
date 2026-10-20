@@ -45,6 +45,8 @@ Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
 - A tree too large for one answer: only `.agents/skills`, `.claude/skills`, `.github/skills`,
   `agent/skills` are listed, with a warning
 - With `GITHUB_TOKEN`, through *code search*: it finds files only, so symbolic links are not seen
+- A pinned ref (`/tree/<ref>`): resolved to its commit and listed through the *tree*, even with
+  `GITHUB_TOKEN` (code search only sees the default branch)
 - The link pins the *scanned commit*
 - Malformed front matter → a *warning*, the scan goes on
 - Unreachable repository → a clear message, exit code 1
