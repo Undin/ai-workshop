@@ -141,6 +141,10 @@ For each unanswered one:
 Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch` until green. The
 pull request already exists: don't run `gh pr create` again.
 
+Then **wait for more review**: check for unanswered comments every minute (`sleep 60`). A new one
+is handled as above, and the wait starts over once CI is green again. After 30 minutes without a
+new comment, stop and go to step 8.
+
 ### 8. Report
 
 The pull request URL, the CI status, each spec case (from step 2, or with `--pr` from the pull
