@@ -1,1 +1,35 @@
-<!doctype html><title>Skill Atlas</title>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill Atlas</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Skill Atlas</h1>
+    <form id="scan" role="search">
+      <label for="source">Repository</label>
+      <input id="source" name="source" type="text" placeholder="https://github.com/owner/repo or a directory" autocomplete="off" spellcheck="false">
+      <button type="submit">Scan</button>
+    </form>
+  </header>
+  <p id="status" role="status" hidden></p>
+  <main hidden>
+    <nav aria-labelledby="repository">
+      <h2 id="repository"></h2>
+      <ul id="warnings" aria-label="Warnings"></ul>
+      <ul id="skills" aria-label="Skills"></ul>
+    </nav>
+    <article id="skill" aria-labelledby="skill-name" hidden>
+      <h2 id="skill-name"></h2>
+      <p><a id="skill-link" target="_blank" rel="noopener noreferrer"></a></p>
+      <p id="skill-copies"></p>
+      <table id="front-matter" aria-label="Front matter"><tbody></tbody></table>
+      <div id="skill-body"></div>
+    </article>
+  </main>
+</body>
+</html>

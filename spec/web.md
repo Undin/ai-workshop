@@ -16,5 +16,6 @@ scan as the [command line](cli.md). Only on this machine (`127.0.0.1`): it reads
 ## API
 - `GET /`: the page
 - `GET /api/scan?source=<link>` → `{ repository, skills, warnings }`; each skill has its `link`,
-  its first sentence as `summary` and its SKILL.md `text`
+  its first sentence as `summary`, its SKILL.md `text`, and that text's parts: the other front
+  matter keys as `properties`, the Markdown `body`
 - A clear message → status 400, `{ error }`

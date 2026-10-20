@@ -7,6 +7,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
+import { parseSkill } from '../src/core/parse.ts';
 import { listen } from '../src/server.ts';
 import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
 
@@ -16,7 +17,16 @@ after(() => server.close());
 
 type Scanned = {
   repository: { id: string };
-  skills: { name: string; path: string; link: string; summary: string; copies: string[]; text: string }[];
+  skills: {
+    name: string;
+    path: string;
+    link: string;
+    summary: string;
+    copies: string[];
+    text: string;
+    properties: Record<string, unknown>;
+    body: string;
+  }[];
   warnings: string[];
 };
 
@@ -54,9 +64,14 @@ test('the scan as JSON: the same skills, links, copies and warnings as the CLI',
   assert.deepEqual(scanned.warnings.map((warning) => `warning: ${warning}`), cli.stderr.split('\n'));
 });
 
-test("each skill comes with its SKILL.md text", async () => {
+test('each skill comes with its SKILL.md text, and its parts', async () => {
   const scanned = (await scanOf(FIXTURE)).body as Scanned;
-  for (const skill of scanned.skills) assert.equal(skill.text, readFileSync(join(FIXTURE, skill.path), 'utf8'), skill.path);
+  for (const skill of scanned.skills) {
+    const text = readFileSync(join(FIXTURE, skill.path), 'utf8');
+    const { properties, body } = parseSkill(text);
+    assert.equal(skill.text, text, skill.path);
+    assert.deepEqual([skill.properties, skill.body], [properties, body], skill.path);
+  }
 });
 
 test('on GitHub: the link pins the scanned commit', async () => {

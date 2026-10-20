@@ -1,0 +1,38 @@
+:root {
+  color-scheme: light dark;
+  --border: color-mix(in srgb, currentColor 18%, transparent);
+  --muted: color-mix(in srgb, currentColor 62%, transparent);
+  --accent: #2f6feb;
+  font: 15px/1.5 system-ui, sans-serif;
+}
+body { margin: 0; }
+header { display: flex; gap: 1.5rem; align-items: center; padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); }
+h1 { font-size: 1.15rem; margin: 0; white-space: nowrap; }
+form { display: flex; gap: 0.5rem; align-items: center; flex: 1; }
+form label { color: var(--muted); }
+input { flex: 1; font: inherit; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+button[type='submit'] { font: inherit; padding: 0.4rem 1rem; border: 0; border-radius: 6px; background: var(--accent); color: white; cursor: pointer; }
+#status { margin: 1rem 1.5rem; }
+#status.error { color: #d1242f; }
+main { display: grid; grid-template-columns: minmax(16rem, 24rem) 1fr; min-height: calc(100vh - 3.5rem); }
+main[hidden], [hidden] { display: none; }
+nav { border-right: 1px solid var(--border); padding: 1rem; overflow: auto; }
+nav h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+ul { list-style: none; margin: 0; padding: 0; }
+#warnings li { font-size: 0.85rem; color: #9a6700; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
+#warnings:not(:empty) { margin-bottom: 0.75rem; }
+#skills button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 6px; padding: 0.5rem 0.6rem; cursor: pointer; }
+#skills button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+#skills button[aria-current] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+#skills .name { display: block; font-weight: 600; }
+#skills .summary, #skills .copies { display: block; font-size: 0.85rem; color: var(--muted); }
+article { padding: 1rem 2rem; overflow: auto; max-width: 60rem; }
+article h2 { margin: 0; }
+#skill-link { font-family: ui-monospace, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
+#skill-copies { color: var(--muted); font-size: 0.85rem; }
+table { border-collapse: collapse; margin: 1rem 0; width: 100%; }
+th, td { border: 1px solid var(--border); padding: 0.35rem 0.6rem; text-align: left; vertical-align: top; }
+th { width: 9rem; font-weight: 600; white-space: nowrap; }
+#skill-body { border-top: 1px solid var(--border); padding-top: 0.5rem; }
+#skill-body pre { padding: 0.75rem; border-radius: 6px; background: color-mix(in srgb, currentColor 6%, transparent); overflow: auto; }
+#skill-body code { font-family: ui-monospace, monospace; font-size: 0.9em; }
