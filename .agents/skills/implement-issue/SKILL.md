@@ -36,9 +36,14 @@ do it; tell the user.
 - The code the issue touches: start from `src/cli.ts`, `src/commands.ts` and `src/core/`; read
   the existing tests in `tests/` and `tests/helpers.ts` to see how a case is tested.
 
-If the issue is closed, already has a linked pull request, already has a status comment of this
-skill (someone started on it; the comment names the branch), or conflicts with the spec, stop and
-tell the user.
+If the issue is closed, already has a linked pull request, or conflicts with the spec, stop and
+tell the user. With `--pr`, skip these checks: the pull request is that work.
+
+A status comment of this skill on the issue (see _Status comments_) is a claim while it doesn't
+say `Stopped`: someone may be working on it (the comment names the branch or the pull request).
+Unless this run is already on that branch, stop and tell the user, who can confirm a resume; a run
+that crashed never edited its comment, so the claim alone doesn't prove anyone is still at work. A
+`Stopped` comment claims nothing: go on.
 
 ### 2. Draft the spec and ask
 
@@ -67,7 +72,8 @@ npm ci   # if node_modules is missing
 
 Then announce the start on the issue (see _Status comments_):
 `🛠️ Started implementing this on branch <branch>.` Not earlier: until the spec is agreed, the work
-may not happen.
+may not happen. On a resume (the issue already has a status comment of this skill), edit that
+comment instead of posting a new one.
 
 ### 4. Change the spec, the code and the tests together
 
