@@ -1,6 +1,7 @@
 # Repository analysis
 ## Input
-A **GitHub repository** URL, or a local directory
+A **GitHub repository** URL, or a local directory; a **GitHub organization** URL: each of its
+repositories (see Organization below)
 ## Output
 Every **skill** (see below): **name**, **description**, **link**
 ## Skill
@@ -37,6 +38,17 @@ The front matter, else the directory; a root `SKILL.md`: the repository
 - Not the skill's own directory: `.claude/skills/run-tests` is a skill
 - Counted from the scanned root: `scan ./fixture` still finds the fixture's skills
 - Skipped, with one warning: `skipped N SKILL.md in test data`
+## Organization
+`https://github.com/<owner>`, with or without the scheme or a trailing slash: an organization, or a user the same way
+- Its **public** repositories, all of them (forks and archived ones too), in GitHub's order: by name
+- Scanned **one by one**, each a repository on its own at its default branch: its skills, its warnings
+- Each listed through its *tree*, even with `GITHUB_TOKEN`: code search answers a few requests a
+  minute, not one per repository; a fresh scan of the repository itself may search
+- A repository that cannot be scanned (an empty one) → *not scanned* and why; the scan goes on
+- GitHub answers no more (rate limit, the token rejected, unreachable) → the scan **stops** there,
+  its clear message, exit code 1
+- Not found → `Organization not found: https://github.com/<owner>`, exit code 1; no public
+  repositories → `0 repositories`
 ## Architecture
 Core: fetch → find → parse. CLI: a *thin client*.
 Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text and its parts: the other

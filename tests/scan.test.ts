@@ -8,12 +8,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
-import { openGitHub, parseGitHubUrl } from '../src/core/github.ts';
+import { openGitHub, openGitHubOwner, parseGitHubOwnerUrl, parseGitHubUrl, type Fetch } from '../src/core/github.ts';
 import { parseSkill } from '../src/core/parse.ts';
-import { replay } from '../src/core/replay.ts';
-import { scan } from '../src/core/scan.ts';
+import { replay, type Recording } from '../src/core/replay.ts';
+import { scan, scanOrganization } from '../src/core/scan.ts';
+import { run } from '../src/commands.ts';
+import { openDirectory } from '../src/local.ts';
 import { openSource } from '../src/open.ts';
-import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE, github } from './helpers.ts';
+import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE, github, inTree, owner } from './helpers.ts';
 
 const fixture = await atlas(['scan', FIXTURE]);
 const example = await atlas(['scan', 'github.com/JetBrains/example']);
@@ -350,10 +352,122 @@ test('rate limit → a message that asks for GITHUB_TOKEN', async () => {
 });
 
 test('a skill carries its SKILL.md text, as read, and its parts', async () => {
-  const result = await scan(await openSource(FIXTURE, { fetch: github }));
+  const result = await scan(await openDirectory(FIXTURE));
   const commits = result.skills.find((skill) => skill.path === '.claude/skills/commits/SKILL.md');
   const text = readFileSync(join(FIXTURE, '.claude/skills/commits/SKILL.md'), 'utf8');
   assert.equal(commits?.text, text);
   const { properties, body } = parseSkill(text);
   assert.deepEqual([commits?.properties, commits?.body], [properties, body]);
+});
+
+// An organization: each public repository, one by one.
+
+/** `fetch` that answers as `answer` does and keeps each requested URL, in order. */
+function watched(answer: Fetch): { fetch: Fetch; requested: string[] } {
+  const requested: string[] = [];
+  return { requested, fetch: (url, init) => (requested.push(url), answer(url, init)) };
+}
+
+test('an organization URL: https://github.com/<owner>, with or without the scheme or a trailing slash', () => {
+  for (const url of ['https://github.com/JetBrains', 'https://github.com/JetBrains/', 'github.com/JetBrains', 'http://www.github.com/JetBrains ']) {
+    assert.deepEqual(parseGitHubOwnerUrl(url), { owner: 'JetBrains' }, url);
+    assert.equal(parseGitHubUrl(url), undefined, url);
+  }
+  for (const url of ['https://github.com/JetBrains/kotlin', 'https://github.com/', 'https://gitlab.com/JetBrains']) {
+    assert.equal(parseGitHubOwnerUrl(url), undefined, url);
+  }
+});
+
+test('an organization → the number of its repositories, then each one with its skill count, or why it is not scanned', async () => {
+  const result = await atlas(['scan', 'https://github.com/JetBrains']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(
+    result.stdout,
+    [
+      'JetBrains · 4 repositories',
+      'JetBrains/example · 1 skill',
+      'JetBrains/malformed · 2 skills',
+      'JetBrains/new · not scanned: GitHub answered 409 for https://api.github.com/repos/JetBrains/new/commits/main: Git Repository is empty.',
+      'JetBrains/none · 0 skills',
+    ].join('\n'),
+  );
+});
+
+test("an organization: each repository's warnings on stderr, after its name", async () => {
+  const result = await atlas(['scan', 'github.com/JetBrains/']);
+  assert.match(
+    result.stderr,
+    /^warning: JetBrains\/malformed: \.claude\/skills\/broken\/SKILL\.md: malformed front matter: .*; using the directory name$/,
+  );
+});
+
+test("an organization's repository: the line of its own scan, at its default branch, listed through its tree even with a token", async () => {
+  const own = await atlas(['scan', 'https://github.com/JetBrains/example']);
+  const organization = await atlas(['scan', 'https://github.com/JetBrains']);
+  assert.ok(organization.stdout.split('\n').includes(own.stdout.split('\n')[0]));
+
+  const { fetch, requested } = watched(github);
+  for await (const _ of scanOrganization(await openGitHubOwner('https://github.com/JetBrains', { fetch, token: 'test' })));
+  assert.deepEqual(requested.filter((url) => url.includes('/search/')), []);
+  assert.ok(requested.includes(`https://api.github.com/repos/JetBrains/example/git/trees/${EXAMPLE_COMMIT}?recursive=1`));
+});
+
+test('an organization: one repository at a time, each one as soon as it is scanned', async () => {
+  const { fetch, requested } = watched(github);
+  const scanning = scanOrganization(await openGitHubOwner('https://github.com/JetBrains', { fetch }));
+  const asked = (repository: string) => requested.some((url) => url.includes(`/JetBrains/${repository}/`));
+  const order: string[] = [];
+  for await (const scanned of scanning) {
+    order.push(scanned.id);
+    // The next repository is not asked for until this one is given.
+    const next = ['example', 'malformed', 'new', 'none'][order.length];
+    if (next) assert.ok(!asked(next), `${next} asked for before ${scanned.id} was given`);
+  }
+  assert.deepEqual(order, ['JetBrains/example', 'JetBrains/malformed', 'JetBrains/new', 'JetBrains/none']);
+});
+
+test('an organization: all its public repositories, page after page', async () => {
+  const names = Array.from({ length: 101 }, (_, index) => `r${String(index).padStart(3, '0')}`);
+  const recording: Recording = owner('Many', names);
+  recording['https://api.github.com/users/Many/repos?per_page=100&page=1'] = {
+    status: 200,
+    body: names.slice(0, 100).map((name) => ({ full_name: `Many/${name}`, default_branch: 'main' })),
+  };
+  recording['https://api.github.com/users/Many/repos?per_page=100&page=2'] = {
+    status: 200,
+    body: [{ full_name: 'Many/r100', default_branch: 'main' }],
+  };
+  for (const name of names) Object.assign(recording, inTree(`Many/${name}`, {}));
+  const lines: string[] = [];
+  const source = await openGitHubOwner('https://github.com/Many', { fetch: replay(recording) });
+  for await (const scanned of scanOrganization(source)) lines.push(scanned.id);
+  assert.equal(lines.length, 101);
+  assert.equal(lines.at(-1), 'Many/r100');
+});
+
+test('an organization without public repositories, or a user → `0 repositories`', async () => {
+  assert.deepEqual(await atlas(['scan', 'https://github.com/nobody']), { code: 0, stdout: 'nobody · 0 repositories', stderr: '' });
+});
+
+test('an organization GitHub does not know → a clear message, exit code 1', async () => {
+  assert.deepEqual(await atlas(['scan', 'https://github.com/no-such-owner']), {
+    code: 1,
+    stdout: '',
+    stderr: 'Organization not found: https://github.com/no-such-owner',
+  });
+});
+
+test('an organization, GitHub answers no more → the scan stops there: the lines so far, the message, exit code 1', async () => {
+  const { fetch, requested } = watched(github);
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const code = await run(['scan', 'https://github.com/Limited'], {
+    open: (input) => openSource(input, { fetch, token: 'test' }),
+    print: (text) => stdout.push(text),
+    error: (text) => stderr.push(text),
+  });
+  assert.equal(code, 1);
+  assert.deepEqual(stdout, ['Limited · 3 repositories', 'Limited/first · 0 skills']);
+  assert.deepEqual(stderr, ['GitHub rate limit reached; try again in a minute']);
+  assert.ok(!requested.some((url) => url.includes('Limited/third')));
 });

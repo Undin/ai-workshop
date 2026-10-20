@@ -3,7 +3,7 @@
 import type { Fetch } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { createAtlasServer, listen } from '../src/server.ts';
-import { EXAMPLE_COMMIT, github, openWith, SLOW_ANSWER_MS } from './helpers.ts';
+import { EXAMPLE_COMMIT, github, inTree, openWith, owner, SLOW_ANSWER_MS } from './helpers.ts';
 
 /** Code search, the commit and the files for a repository with these SKILL.md files. */
 function repository(id: string, files: Record<string, string>): Recording {
@@ -47,13 +47,18 @@ const answers = replay(
     ...repository('JetBrains/long', {
       '.claude/skills/long/SKILL.md': `---\nname: long\ndescription: ${'Explains every step of a very long procedure, '.repeat(8)}in detail.\n---\n# Long\n`,
     }),
+    // An organization whose second repository answers SLOW_ANSWER_MS late.
+    ...owner('Slow', ['first', 'late']),
+    ...inTree('Slow/first', {}),
+    ...inTree('Slow/late', {}),
   },
   github,
 );
 
-// JetBrains/slow answers as JetBrains/example does, SLOW_ANSWER_MS late: a scan still running.
+// JetBrains/slow answers as JetBrains/example does, SLOW_ANSWER_MS late: a scan still running;
+// Slow/late too.
 const slow: Fetch = async (url, init) => {
-  if (!url.includes('JetBrains/slow')) return answers(url, init);
+  if (!url.includes('JetBrains/slow') && !url.includes('Slow/late/')) return answers(url, init);
   await new Promise((resolve) => setTimeout(resolve, SLOW_ANSWER_MS));
   return answers(url.replace('JetBrains/slow', 'JetBrains/example'), init);
 };

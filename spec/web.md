@@ -5,8 +5,9 @@ Only for `localhost` and `127.0.0.1` at its port in the `Host` header (no port: 
 another site's page cannot reach it through a name of its own resolved to `127.0.0.1` (DNS rebinding).
 `<port>`: digits, 0 to 65535, 0 for any free one; else a clear message, exit code 1.
 Other arguments: the usage, exit code 1.
-*Nothing is stored*: each scan is a fresh one; going back to no repository stops waiting for a
-running one, and its result is not shown. `GITHUB_TOKEN` works as for `scan`.
+*Nothing is stored*: each scan is a fresh one, but for the repositories of an organization being
+scanned (Organization page); going back to no repository stops waiting for a running one, and its
+result is not shown. `GITHUB_TOKEN` works as for `scan`.
 ## Page
 - A **field** for a repository link (a GitHub URL, or a directory) and a *Scan* button; Enter scans too
 - The address keeps it, `?source=<link>`: a reload or a shared link scans it again
@@ -26,9 +27,31 @@ running one, and its result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - The warnings, as the CLI prints them
 - No skills → `No skills found`; an empty field → `Enter a GitHub repository URL or a directory`;
   an unreachable repository or not a GitHub URL → the same clear message as the CLI
+## Organization page
+- An organization URL (`https://github.com/<owner>`, [analysis.md](analysis.md), Organization) → its
+  own page instead: `JetBrains · 4 repositories`, then each **repository** as the CLI lists it,
+  in its order, all at once: its skill count once it is scanned, `…` until then, or `not scanned: <why>`
+- While it runs: `Scanning JetBrains: 1 of 4 repositories…` and a **Stop** button; when done, nothing;
+  no repositories → `No repositories found`
+- Stop: the scan stops, the repositories left `not scanned`, `Stopped after 1 of 4 repositories`
+- A scanned repository is a **link** to its page, `?source=https://github.com/<owner>/<repo>`: the
+  page of one repository above, from the organization's scan, *no new scan*; not scanned (yet): no link
+- The organization's scan **goes on** there, and its page shows it: `Scanning JetBrains: 1 of 4
+  repositories…`, `JetBrains` a link back to the organization's page, and Stop
+- Back to the organization's page, or to another of its scanned repositories: what the scan has, as
+  it goes on; no new scan
+- The scan is kept *in the page* only, while it is open: a reload, a shared link, a new tab or the
+  Scan button scan afresh; scanning anything else, or going back to no repository, stops it
+- The warnings, as the CLI prints them
+- GitHub answers no more → its message, red, above the repositories; the ones left: `not scanned`
 ## API
 - `GET /`: the page
 - `GET /api/scan?source=<link>`; not `HEAD`, which would scan for nothing → `{ repository, skills, warnings }`; each skill has its `link`,
   its first sentence as `summary`, its SKILL.md `text`, and that text's parts: the other front
   matter keys as `properties`, the Markdown `body`
+- For an organization: `application/x-ndjson`, one JSON line at a time, each as soon as it is known:
+  `{ organization, repositories }` (each `{ id, url }`), then for each repository as it is scanned
+  `{ id, url, repository, skills, warnings }`, as for a repository, or
+  `{ id, url, error }`; the scan cannot go on → `{ error }`, last
+- The page closes or scans something else → the server stops scanning the organization
 - A clear message → status 400, `{ error }`
