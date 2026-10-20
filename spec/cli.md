@@ -9,4 +9,5 @@ build-tools-bump-gradle-api — Bumps the Gradle API…
   https://github.com/JetBrains/kotlin/blob/<commit>/…
 ```
 - Sorted by **name**; the description's *first sentence*
-- `also in <paths>` for copies; warnings go to *stderr*
+- `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
+- Warnings go to *stderr*: malformed front matter, copies with different content, links not followed, skipped test data

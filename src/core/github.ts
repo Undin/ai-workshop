@@ -32,13 +32,25 @@ export async function openGitHub(input: string, options: GitHubOptions): Promise
   const id = info.full_name;
   const { sha } = await github.json<{ sha: string }>(`${API}/repos/${id}/commits/${encodePath(info.default_branch)}`);
   const warnings: string[] = [];
-  const paths = options.token ? await searchPaths(github, id) : await treePaths(github, id, sha, warnings);
+  // Code search finds files only; the tree has the links too.
+  const entries = options.token
+    ? (await searchPaths(github, id)).map((path) => ({ path, link: undefined }))
+    : await treeEntries(github, id, sha, warnings);
+  const links = new Map(entries.flatMap((entry) => (entry.link ? [[entry.path, entry.link]] : [])));
   const [organization, repo] = id.split('/');
   return {
     repository: { id, organization, name: repo, url: `https://github.com/${id}`, commit: sha },
-    paths,
+    paths: entries.filter((entry) => !entry.link).map((entry) => entry.path),
+    links: [...links.keys()],
     warnings,
     read: (path) => github.raw(`${RAW}/${id}/${sha}/${encodePath(path)}`),
+    // A link's blob is its target.
+    readLink: async (path) => {
+      const blob = links.get(path);
+      if (!blob) return undefined;
+      const { content } = await github.json<{ content: string }>(`${API}/repos/${id}/git/blobs/${blob}`);
+      return new TextDecoder().decode(Uint8Array.from(atob(content.replace(/\s/g, '')), (char) => char.charCodeAt(0)));
+    },
   };
 }
 
@@ -58,19 +70,22 @@ async function searchPaths(github: Client, id: string): Promise<string[]> {
 
 type Tree = { truncated: boolean; tree: { path: string; mode: string; type: string; sha: string }[] };
 
+/** A file, or a symbolic link with its blob. */
+type Entry = { path: string; link: string | undefined };
+
 /** The whole tree at once, or only the skill roots when it is too large for one answer. */
-async function treePaths(github: Client, id: string, sha: string, warnings: string[]): Promise<string[]> {
+async function treeEntries(github: Client, id: string, sha: string, warnings: string[]): Promise<Entry[]> {
   const tree = await github.json<Tree>(`${API}/repos/${id}/git/trees/${sha}?recursive=1`);
   if (!tree.truncated) return files(tree);
   warnings.push(`the tree is too large to list at once; looked only in ${SKILL_ROOTS.join(', ')} (GITHUB_TOKEN searches everywhere)`);
-  const paths: string[] = [];
+  const entries: Entry[] = [];
   for (const root of SKILL_ROOTS) {
     const rootSha = await directory(github, id, sha, root);
     if (!rootSha) continue;
     const subtree = await github.json<Tree>(`${API}/repos/${id}/git/trees/${rootSha}?recursive=1`);
-    paths.push(...files(subtree).map((path) => `${root}/${path}`));
+    entries.push(...files(subtree).map((entry) => ({ ...entry, path: `${root}/${entry.path}` })));
   }
-  return paths;
+  return entries;
 }
 
 /** Walks down one level at a time; the directory's tree, or undefined if it does not exist. */
@@ -85,9 +100,11 @@ async function directory(github: Client, id: string, sha: string, path: string):
   return current;
 }
 
-/** Regular files only: a symbolic link's content is its target, not a SKILL.md. */
-function files(tree: Tree): string[] {
-  return tree.tree.filter((item) => item.type === 'blob' && item.mode !== '120000').map((item) => item.path);
+/** Regular files, and symbolic links: a link's content is its target, not a SKILL.md. */
+function files(tree: Tree): Entry[] {
+  return tree.tree
+    .filter((item) => item.type === 'blob')
+    .map((item) => ({ path: item.path, link: item.mode === '120000' ? item.sha : undefined }));
 }
 
 type Client = ReturnType<typeof client>;
