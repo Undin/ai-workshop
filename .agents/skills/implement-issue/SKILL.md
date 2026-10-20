@@ -124,18 +124,20 @@ Once the pull request exists, edit the issue's status comment: `🛠️ Implemen
 
 A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally, fix it with a
 **new commit** (no force-push), push, and watch again, until every check is green. A red `demo`
-check is a demo failing on real repositories: its video is still kept, and shows where.
+check (the Demos workflow) is a demo failing on real repositories: its video is still kept, and
+shows where.
 
 #### Demo videos
 
-On a pull request, CI's `demo` job records **every** demo (`demos/*.demo.ts`) and keeps each
-video as an artifact of its own, `<name>.webm`. Once CI is green, link in the description the
-videos of the demos **this pull request adds or changes**, and no others:
+On a pull request, the Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)), apart from
+CI, records **every** demo (`demos/*.demo.ts`) and keeps each video as an artifact of its own,
+`<name>.webm`. Once its run is green, link in the description the videos of the demos **this pull
+request adds or changes**, and no others:
 
 ```bash
 git diff --name-only origin/main...HEAD -- 'demos/*.demo.ts'   # the demos to link: demos/<name>.demo.ts
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-run=$(gh run list --workflow CI --event pull_request --commit "$(git rev-parse HEAD)" --json databaseId --jq '.[0].databaseId')
+run=$(gh run list --workflow Demos --event pull_request --commit "$(git rev-parse HEAD)" --json databaseId --jq '.[0].databaseId')
 gh api "repos/$repo/actions/runs/$run/artifacts" \
   --jq ".artifacts[] | select(.name == \"<name>.webm\") | \"https://github.com/$repo/actions/runs/$run/artifacts/\(.id)\""
 ```
@@ -148,7 +150,7 @@ created the pull request: no need to ask):
 ```
 
 No demo added or changed: no `## Demo` section, no links. Every new push records the demos again:
-after one (step 7), point the links at the artifacts of the latest green run.
+after one (step 7), point the links at the artifacts of the latest green Demos run.
 
 ### 7. Review comments
 
