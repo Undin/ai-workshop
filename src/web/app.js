@@ -1,6 +1,7 @@
 // The web view's page: the repository field, its skills, and the chosen skill's SKILL.md, from
 // GET /api/scan; for an organization, its repositories as they are scanned, each linked to its
-// own page. A SKILL.md is untrusted: its Markdown is sanitized before it is shown.
+// page, shown from that scan while it goes on. A SKILL.md is untrusted: its Markdown is sanitized
+// before it is shown.
 import { marked } from '/vendor/marked.js';
 import DOMPurify from '/vendor/purify.js';
 
@@ -10,6 +11,7 @@ const input = $('#source');
 const status = $('#status');
 const main = $('main');
 const organization = $('#organization');
+const progress = $('#progress');
 const filter = $('#filter');
 
 // Links in a SKILL.md open outside the page.
@@ -24,6 +26,13 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 let current;
 /** The scanned skills, each with its list item, for the filter. */
 let listed = [];
+/**
+ * The organization's scan, kept in the page while it is open: its page and its repositories'
+ * pages show what it has, as it goes on, without a new scan.
+ */
+let organizationScan;
+/** Whether the page shows the organization's scan: its page, or one of its repositories'. */
+let fromOrganization = false;
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -35,29 +44,40 @@ form.addEventListener('submit', (event) => {
 });
 
 filter.addEventListener('input', applyFilter);
+$('#stop').addEventListener('click', stopOrganization);
+inPage($('#progress-organization'));
 
 addEventListener('popstate', start);
 start();
 
-/** The address keeps the repository: a reload or a shared link scans it again. */
+/**
+ * The address keeps the repository: a reload or a shared link scans it again. The organization
+ * being scanned and its scanned repositories are shown from its scan.
+ */
 function start() {
   const source = new URLSearchParams(location.search).get('source') ?? '';
   input.value = source;
+  if (organizationScan && source === organizationScan.source) return showOrganization();
+  const scanned = organizationScan?.repositories.get(source)?.answer;
+  if (scanned) return showRepository(scanned);
   if (source) return scan(source);
   // Back to no repository: a scan still running must not show its result here.
   current?.abort();
+  forgetOrganization();
   show('');
 }
 
+/** A fresh scan: it replaces the one running, an organization's too. */
 async function scan(source) {
   current?.abort();
+  forgetOrganization();
   const controller = (current = new AbortController());
   show(`Scanning ${source || 'nothing'}…`);
   try {
     const response = await fetch(`/api/scan?source=${encodeURIComponent(source)}`, { signal: controller.signal });
     // An organization: a line for each repository as it is scanned.
     if (response.headers.get('content-type')?.startsWith('application/x-ndjson')) {
-      return await renderOrganization(lines(response.body), controller.signal);
+      return await followOrganization(source, lines(response.body), controller);
     }
     const answer = await response.json();
     if (controller.signal.aborted) return;
@@ -109,45 +129,119 @@ function render({ repository, skills, warnings }) {
 }
 
 /**
- * The organization's repositories at once, each a link to its own page, then each one's skill
- * count as it is scanned; the warnings as the CLI prints them.
+ * The organization's repositories at once, then each one's skill count as it is scanned, a link
+ * to its page once it is; the warnings as the CLI prints them. The scan is kept in the page.
  */
-async function renderOrganization(answer, signal) {
-  const items = new Map();
+async function followOrganization(source, answer, controller) {
+  const scanning = { source, controller, running: true, message: '', error: false, total: 0, scanned: 0, repositories: new Map() };
   const warnings = $('#organization-warnings');
-  let scanned = 0;
-  const progress = () => (scanned < items.size ? `Scanned ${scanned} of ${count(items.size, 'repository', 'repositories')}…` : '');
-  for await (const line of answer) {
-    if (signal.aborted) return;
-    if (line.organization) {
-      $('#organization-name').textContent = `${line.organization.id} · ${count(line.repositories.length, 'repository', 'repositories')}`;
-      warnings.replaceChildren();
-      $('#repositories').replaceChildren(
-        ...line.repositories.map(({ id, url }) => {
-          const link = element('a', '');
-          link.href = `/?source=${encodeURIComponent(url)}`;
-          const state = element('span', '…', 'count');
-          link.append(element('span', id, 'name'), state);
-          items.set(id, state);
-          const item = element('li', '');
-          item.append(link);
-          return item;
-        }),
-      );
-      show(line.repositories.length ? progress() : 'No repositories found', { view: organization });
-    } else if (line.id) {
-      const state = items.get(line.id);
-      state.textContent = line.error ? `not scanned: ${line.error}` : count(line.skills, 'skill', 'skills');
-      state.classList.toggle('error', !!line.error);
-      warnings.append(...(line.warnings ?? []).map((warning) => element('li', `warning: ${line.id}: ${warning}`)));
-      scanned++;
-      show(progress(), { view: organization });
-    } else {
-      // GitHub answers no more: the repositories left are not scanned.
-      for (const state of items.values()) if (state.textContent === '…') state.textContent = 'not scanned';
-      return show(line.error, { view: organization, error: true });
+  try {
+    for await (const line of answer) {
+      if (controller.signal.aborted) return;
+      if (line.organization) {
+        Object.assign(scanning, { id: line.organization.id, total: line.repositories.length });
+        if (!scanning.total) scanning.message = 'No repositories found';
+        $('#organization-name').textContent = `${scanning.id} · ${count(scanning.total, 'repository', 'repositories')}`;
+        warnings.replaceChildren();
+        $('#repositories').replaceChildren(
+          ...line.repositories.map(({ id, url }) => {
+            const row = element('span', '', 'row');
+            const state = element('span', '…', 'count');
+            row.append(element('span', id, 'name'), state);
+            scanning.repositories.set(url, { row, state });
+            const item = element('li', '');
+            item.append(row);
+            return item;
+          }),
+        );
+        organizationScan = scanning;
+        showOrganization();
+      } else if (line.id) {
+        const repository = scanning.repositories.get(line.url);
+        repository.scanned = true;
+        scanning.scanned++;
+        if (line.error) {
+          repository.state.textContent = `not scanned: ${line.error}`;
+          repository.state.classList.add('error');
+        } else {
+          repository.answer = line;
+          repository.state.textContent = count(line.skills.length, 'skill', 'skills');
+          // Scanned: a link to its page, shown from this scan.
+          const link = element('a', '', 'row');
+          link.href = `/?source=${encodeURIComponent(line.url)}`;
+          link.append(...repository.row.childNodes);
+          inPage(link);
+          repository.row.replaceWith(link);
+          warnings.append(...line.warnings.map((warning) => element('li', `warning: ${line.id}: ${warning}`)));
+        }
+        updateProgress();
+      } else {
+        // GitHub answers no more.
+        return finish(scanning, line.error, true);
+      }
     }
+    finish(scanning, scanning.message, false);
+  } catch (error) {
+    if (!controller.signal.aborted) finish(scanning, `Cannot reach the Skill Atlas server: ${error.message}`, true);
   }
+}
+
+/** The organization's scan is over: the repositories left are not scanned. */
+function finish(scanning, message, error) {
+  Object.assign(scanning, { running: false, message, error });
+  for (const repository of scanning.repositories.values()) if (!repository.scanned) repository.state.textContent = 'not scanned';
+  if (scanning !== organizationScan) return;
+  updateProgress();
+  if (!organization.hidden) showOrganization();
+}
+
+/** Stops the organization's scan, here or on one of its repositories' pages. */
+function stopOrganization() {
+  const scanning = organizationScan;
+  scanning.controller.abort();
+  finish(scanning, `Stopped after ${scanning.scanned} of ${count(scanning.total, 'repository', 'repositories')}`, false);
+}
+
+/** No organization's scan any more: another scan, or no repository. */
+function forgetOrganization() {
+  organizationScan = undefined;
+  fromOrganization = false;
+  updateProgress();
+}
+
+/** The organization's page, as its scan has it. */
+function showOrganization() {
+  fromOrganization = true;
+  show(organizationScan.message, { view: organization, error: organizationScan.error });
+  updateProgress();
+}
+
+/** A repository's page, from the organization's scan: no new scan. */
+function showRepository(answer) {
+  fromOrganization = true;
+  render(answer);
+  updateProgress();
+}
+
+/** While the organization's scan runs, on its page and its repositories': how far it is, a link to its page, Stop. */
+function updateProgress() {
+  const scanning = organizationScan;
+  progress.hidden = !(scanning?.running && scanning.total && fromOrganization);
+  if (progress.hidden) return;
+  const link = $('#progress-organization');
+  link.textContent = scanning.id;
+  link.href = `/?source=${encodeURIComponent(scanning.source)}`;
+  $('#progress-count').textContent = `: ${scanning.scanned} of ${count(scanning.total, 'repository', 'repositories')}…`;
+}
+
+/** A link to a page of the organization's scan: shown from what it has, the scan goes on. A new tab scans afresh. */
+function inPage(link) {
+  link.addEventListener('click', (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    history.pushState(null, '', link.href);
+    start();
+  });
 }
 
 /** Each line of an NDJSON body, parsed, as it arrives. */
