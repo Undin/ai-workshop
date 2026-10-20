@@ -16,7 +16,7 @@
     "test:web": "playwright test",
     "e2e": "node --test e2e/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "demo": "node scripts/demo.ts"
+    "demo": "playwright test -c demos/playwright.config.ts"
   },
   "dependencies": {
     "dompurify": "^3.4.17",

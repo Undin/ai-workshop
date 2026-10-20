@@ -1,38 +1,43 @@
-// The filter (spec/web.md, Page; #9): it keeps the skills whose name or first sentence contains
-// its text, marks each match, and shows how many are shown of all.
+// The filter (spec/web.md, Page; #9) on JetBrains/MPS: it keeps the skills whose name or first
+// sentence contains its text, marks each match, and shows how many are shown of all.
+// A real repository changes: what is checked is what the filter does, not which skills it has.
 import { expect, pause, test, type } from './demo.ts';
+import type { Page } from '@playwright/test';
+
+const skills = (page: Page) => page.getByRole('list', { name: 'Skills' }).getByRole('button');
+
+/** The filter by `text`: each skill kept contains it, each match is marked, and the count says so. */
+async function filterBy(page: Page, text: string, all: number) {
+  await type(page.getByLabel('Filter'), text);
+  const kept = await skills(page).count();
+  expect(kept).toBeGreaterThan(0);
+  for (const skill of await skills(page).all()) {
+    await expect(skill.locator('.name, .summary').locator('mark').first()).toHaveText(new RegExp(`^${text}$`, 'i'));
+  }
+  await expect(page.getByText(`Showing ${kept} of ${all} skills`)).toBeVisible();
+  await pause(page, 2500);
+}
 
 test('the filter', async ({ page }) => {
-  const skills = page.getByRole('list', { name: 'Skills' }).getByRole('button');
-  const filter = page.getByLabel('Filter');
   await page.goto('/');
-  await page.screencast.showChapter('Filter the found skills', {
-    description: 'By name or first sentence, with the count of the shown ones',
-  });
-
-  await type(page.getByLabel('Repository'), './fixture');
+  await type(page.getByLabel('Repository'), 'https://github.com/JetBrains/MPS', 60);
   await page.getByRole('button', { name: 'Scan' }).click();
-  await expect(page.getByText('Showing 10 of 10 skills')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^JetBrains\/MPS · \d+ skills$/ })).toBeVisible({ timeout: 120_000 });
+  const all = await skills(page).count();
+  await expect(page.getByText(`Showing ${all} of ${all} skills`)).toBeVisible();
   await pause(page);
 
-  // By name: both `deploy` skills, each match marked.
-  await type(filter, 'deploy');
-  await expect(skills.locator('.name mark')).toHaveText(['deploy', 'deploy']);
-  await expect(page.getByText('Showing 2 of 10 skills')).toBeVisible();
-  await pause(page, 2000);
-
-  // A name and a first sentence: release-checklist, and changelog's `… for a release.`
-  await type(filter, 'release');
-  await expect(skills.locator('.name')).toHaveText(['changelog', 'release-checklist']);
-  await expect(page.getByText('Showing 2 of 10 skills')).toBeVisible();
-  await pause(page, 2000);
+  // A name and a first sentence, in any case: teamcity-cli, and `… TeamCity feature-branch validation …`
+  await filterBy(page, 'teamcity', all);
+  await filterBy(page, 'editor', all);
 
   // Nothing kept.
-  await type(filter, 'kotlin');
-  await expect(page.getByText('No skills match kotlin')).toBeVisible();
+  await type(page.getByLabel('Filter'), 'python');
+  await expect(page.getByText('No skills match python')).toBeVisible();
   await pause(page, 2000);
 
   // Empty again: all of them.
-  await filter.clear();
-  await expect(page.getByText('Showing 10 of 10 skills')).toBeVisible();
+  await page.getByLabel('Filter').click();
+  await page.getByLabel('Filter').clear();
+  await expect(page.getByText(`Showing ${all} of ${all} skills`)).toBeVisible();
 });
