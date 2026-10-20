@@ -1,9 +1,9 @@
-// `gh api --paginate --slurp <path>` for tests/wait-for-review.test.ts, answered from the JSON file
-// in FAKE_GH: for each path, what GitHub answers each time it is asked (pages of a list, or an error
-// to fail with); the last answer repeats. Every call is appended to FAKE_GH.log.
+// `gh api [--paginate --slurp] <path>` for tests/wait-for-review.test.ts, answered from the JSON file
+// in FAKE_GH: for each path, what GitHub answers each time it is asked (pages of a list, an object, or
+// an error to fail with); the last answer repeats. Every call is appended to FAKE_GH.log.
 import { appendFileSync, readFileSync } from 'node:fs';
 
-export type Answer = unknown[][] | { error: string };
+export type Answer = unknown[][] | Record<string, unknown> | { error: string };
 export type Answers = Record<string, Answer[]>;
 
 const file = process.env.FAKE_GH!;

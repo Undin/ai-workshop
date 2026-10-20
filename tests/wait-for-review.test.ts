@@ -12,6 +12,7 @@ import type { Answer, Answers } from './fake-gh.ts';
 const SCRIPT = fileURLToPath(new URL('../.agents/skills/implement-issue/scripts/wait-for-review.ts', import.meta.url));
 const FAKE_GH = fileURLToPath(new URL('./fake-gh.ts', import.meta.url));
 
+const PULL = 'repos/{owner}/{repo}/pulls/7';
 const REVIEWS = 'repos/{owner}/{repo}/pulls/7/reviews';
 const CONVERSATION = 'repos/{owner}/{repo}/issues/7/comments';
 const INLINE = 'repos/{owner}/{repo}/pulls/7/comments';
@@ -29,10 +30,23 @@ const inline = (id: number, minute: number, body: string, root?: number) => ({
   path: 'src/cli.ts', line: 10, original_line: 10, ...(root ? { in_reply_to_id: root } : {}),
 });
 const review = (id: number, minute: number, body: string, state = 'COMMENTED') => ({
-  id, user: { login: 'reviewer' }, state, body, html_url: `${PR}#pullrequestreview-${id}`, submitted_at: at(minute),
+  id, user: { login: 'reviewer', type: 'User' }, author_association: 'NONE', state, body,
+  html_url: `${PR}#pullrequestreview-${id}`, submitted_at: at(minute),
+});
+/** A review by a maintainer of the repository. */
+const maintainer = (id: number, minute: number, body: string, state: string, login = 'owner') => ({
+  ...review(id, minute, body, state), user: { login, type: 'User' }, author_association: 'OWNER',
+});
+/** A review by Air's bot: no maintainer, even when it approves. */
+const bot = (id: number, minute: number, body: string, state: string) => ({
+  ...review(id, minute, body, state), user: { login: 'jetbrains-air[bot]', type: 'Bot' },
 });
 
-type Asked = { reviews?: Answer[]; conversation?: Answer[]; inline?: Answer[] };
+const OPEN = { state: 'open', merged: false };
+const MERGED = { state: 'closed', merged: true };
+const CLOSED = { state: 'closed', merged: false };
+
+type Asked = { pull?: Answer[]; reviews?: Answer[]; conversation?: Answer[]; inline?: Answer[] };
 
 /** `wait-for-review.ts <args>` with GitHub answering `asked` (one page of nothing by default). */
 function waitForReview(t: TestContext, asked: Asked, args = ['7', '--quiet', '0']) {
@@ -41,6 +55,7 @@ function waitForReview(t: TestContext, asked: Asked, args = ['7', '--quiet', '0'
   writeFileSync(join(dir, 'gh'), `#!/bin/sh\nexec "${process.execPath}" "${FAKE_GH}" "$@"\n`);
   chmodSync(join(dir, 'gh'), 0o755);
   const answers: Answers = {
+    [PULL]: asked.pull ?? [OPEN],
     [REVIEWS]: asked.reviews ?? [[[]]],
     [CONVERSATION]: asked.conversation ?? [[[]]],
     [INLINE]: asked.inline ?? [[[]]],
@@ -67,7 +82,7 @@ test('nothing to answer: [] and exit 2, after asking for every kind of review on
   assert.equal(code, 2);
   assert.equal(stdout, '[]\n');
   assert.equal(stderr, 'No unanswered review on #7 in 0 minutes.\n');
-  assert.deepEqual(calls, [REVIEWS, CONVERSATION, INLINE].map((path) => `api --paginate --slurp ${path}`));
+  assert.deepEqual(calls, [`api ${PULL}`, ...[REVIEWS, CONVERSATION, INLINE].map((path) => `api --paginate --slurp ${path}`)]);
 });
 
 test('an inline comment without a reply: its thread, path, line and comment', (t) => {
@@ -204,11 +219,91 @@ test('waits: no review for the whole quiet period, [] and exit 2', (t) => {
   assert.ok(calls.filter((call) => call.endsWith(REVIEWS)).length >= 2, calls.join('\n'));
 });
 
+test('merged: what is still unanswered, exit 3, without waiting', (t) => {
+  const { code, stdout, stderr, calls } = waitForReview(
+    t, { pull: [MERGED], conversation: [[[comment(1, 1, 'A question.')]]] }, ['7', '--quiet', '1', '--interval', '0.1'],
+  );
+  assert.equal(code, 3);
+  assert.deepEqual(JSON.parse(stdout).map((item: { id: number }) => item.id), [1]);
+  assert.equal(stderr, '#7 is merged: no more review to wait for.\n');
+  assert.equal(calls.filter((call) => call.endsWith(PULL)).length, 1);
+});
+
+test('closed without merging: [] when all is answered, exit 3', (t) => {
+  const { code, stdout, stderr } = waitForReview(t, { pull: [CLOSED] });
+  assert.equal(code, 3);
+  assert.equal(stdout, '[]\n');
+  assert.equal(stderr, '#7 is closed: no more review to wait for.\n');
+});
+
+test('waits: merged while waiting, exit 3', (t) => {
+  const { code, stdout, stderr, calls } = waitForReview(t, { pull: [OPEN, OPEN, MERGED] }, ['7', '--quiet', '1', '--interval', '0.1']);
+  assert.equal(code, 3);
+  assert.equal(stdout, '[]\n');
+  assert.equal(stderr, '#7 is merged: no more review to wait for.\n');
+  assert.equal(calls.filter((call) => call.endsWith(PULL)).length, 3);
+});
+
+test('approved by a maintainer, all answered: [] and exit 3, without waiting', (t) => {
+  const { code, stdout, stderr, calls } = waitForReview(
+    t, { reviews: [[[maintainer(1, 1, '', 'APPROVED')]]] }, ['7', '--quiet', '1', '--interval', '0.1'],
+  );
+  assert.equal(code, 3);
+  assert.equal(stdout, '[]\n');
+  assert.equal(stderr, '#7 is approved by owner: no more review to wait for.\n');
+  assert.equal(calls.filter((call) => call.endsWith(REVIEWS)).length, 1);
+});
+
+test('approved by a maintainer, with review still unanswered: that review, exit 0', (t) => {
+  const listed = found(t, { reviews: [[[maintainer(1, 1, 'Approved, but rename it.', 'APPROVED')]]] });
+  assert.deepEqual(listed.map((item: { id: number }) => item.id), [1]);
+});
+
+test('waits: approved by a maintainer while waiting, exit 3', (t) => {
+  const { code, stderr, calls } = waitForReview(
+    t, { reviews: [[[]], [[maintainer(1, 1, '', 'APPROVED')]]] }, ['7', '--quiet', '1', '--interval', '0.1'],
+  );
+  assert.equal(code, 3);
+  assert.equal(stderr, '#7 is approved by owner: no more review to wait for.\n');
+  assert.equal(calls.filter((call) => call.endsWith(REVIEWS)).length, 2);
+});
+
+test('no approval: by the bot, by who is no maintainer, or one requested changes or dismissed since', (t) => {
+  const cases = [
+    [bot(1, 1, 'LGTM', 'APPROVED')],
+    [{ ...bot(1, 1, 'LGTM', 'APPROVED'), author_association: 'MEMBER' }],
+    [review(1, 1, '', 'APPROVED')],
+    [maintainer(1, 1, '', 'APPROVED'), maintainer(2, 2, '', 'CHANGES_REQUESTED')],
+    [maintainer(1, 1, '', 'DISMISSED')],
+  ];
+  for (const reviews of cases) {
+    const { code, stdout } = waitForReview(t, { reviews: [[reviews]] });
+    assert.equal(code, 2, JSON.stringify(reviews));
+    assert.equal(stdout, '[]\n');
+  }
+});
+
+test('approval: a later one overrides requested changes, comments do not override it, any maintainer approving is enough', (t) => {
+  const cases: [unknown[], string][] = [
+    [[maintainer(1, 1, '', 'CHANGES_REQUESTED'), maintainer(2, 2, '', 'APPROVED')], 'owner'],
+    [[maintainer(1, 1, '', 'APPROVED'), maintainer(2, 2, '', 'COMMENTED')], 'owner'],
+    [[maintainer(1, 1, '', 'CHANGES_REQUESTED', 'member'), maintainer(2, 2, '', 'APPROVED')], 'owner'],
+    [[{ ...maintainer(1, 1, '', 'APPROVED', 'collaborator'), author_association: 'COLLABORATOR' }], 'collaborator'],
+  ];
+  for (const [reviews, login] of cases) {
+    const { code, stderr } = waitForReview(t, { reviews: [[reviews]] });
+    assert.equal(code, 3, JSON.stringify(reviews));
+    assert.equal(stderr, `#7 is approved by ${login}: no more review to wait for.\n`);
+  }
+});
+
 test('gh fails: its error, exit 1, nothing on stdout', (t) => {
   const { code, stdout, stderr } = waitForReview(t, { inline: [{ error: 'HTTP 502: Bad Gateway' }] });
   assert.equal(code, 1);
   assert.equal(stdout, '');
   assert.equal(stderr, `gh api ${INLINE} failed: HTTP 502: Bad Gateway\n`);
+  const pull = waitForReview(t, { pull: [{ error: 'HTTP 404: Not Found' }] });
+  assert.deepEqual([pull.code, pull.stdout, pull.stderr], [1, '', `gh api ${PULL} failed: HTTP 404: Not Found\n`]);
 });
 
 test('bad arguments: what is wrong and the usage, exit 1, GitHub never asked', (t) => {
