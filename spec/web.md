@@ -1,6 +1,8 @@
 # Web view
-`./skill-atlas serve [--port <port>]`: a local web view on `http://localhost:3000`, the same
+`./skill-atlas serve [--port <port>]`: a local web view on `http://127.0.0.1:3000`, the same
 scan as the [command line](cli.md). Only on this machine (`127.0.0.1`): it reads local directories.
+Only for `localhost` and `127.0.0.1` in the `Host` header, else 403: another site's page cannot
+reach it through a name of its own resolved to `127.0.0.1` (DNS rebinding).
 *Nothing is stored*: each scan is a fresh one. `GITHUB_TOKEN` works as for `scan`.
 ## Page
 - A **field** for a repository link (a GitHub URL, or a directory) and a *Scan* button; Enter scans too
@@ -10,13 +12,14 @@ scan as the [command line](cli.md). Only on this machine (`127.0.0.1`): it reads
   `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
 - A chosen skill's **SKILL.md**: the front matter as a table, the body as *Markdown*, and its link
   (on GitHub at the *scanned commit*); the first skill is chosen at first
-- The SKILL.md is *untrusted*: rendered HTML is sanitized, scripts never run
+- The SKILL.md is *untrusted*: rendered HTML is sanitized, scripts never run, remote images
+  are not loaded (they would tell their server who opened it)
 - The warnings, as the CLI prints them
 - No skills → `No skills found`; an empty field, an unreachable repository or not a GitHub URL
   → the same clear message as the CLI
 ## API
 - `GET /`: the page
-- `GET /api/scan?source=<link>` → `{ repository, skills, warnings }`; each skill has its `link`,
+- `GET /api/scan?source=<link>`; not `HEAD`, which would scan for nothing → `{ repository, skills, warnings }`; each skill has its `link`,
   its first sentence as `summary`, its SKILL.md `text`, and that text's parts: the other front
   matter keys as `properties`, the Markdown `body`
 - A clear message → status 400, `{ error }`

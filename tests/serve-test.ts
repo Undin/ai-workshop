@@ -38,6 +38,8 @@ const answers = replay(
         '<img src="x" onerror="globalThis.pwned = \'onerror\'">',
         '<a href="javascript:globalThis.pwned = \'href\'">click</a>',
         '',
+        '![tracker](https://tracker.example/pixel.png)',
+        '',
       ].join('\n'),
     }),
     ...repository('JetBrains/empty', {}),

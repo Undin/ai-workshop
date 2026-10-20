@@ -17,7 +17,7 @@ Or in a local web view: a field for a repository link, its skills and their SKIL
 
 ```console
 $ ./skill-atlas serve
-Skill Atlas: http://localhost:3000/
+Skill Atlas: http://127.0.0.1:3000/
 ```
 
 Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests; the web view's run

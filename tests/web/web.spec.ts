@@ -106,7 +106,11 @@ test('on GitHub: the link pins the scanned commit', async ({ page }) => {
   );
 });
 
-test('the SKILL.md is untrusted: sanitized, its scripts never run', async ({ page }) => {
+test('the SKILL.md is untrusted: sanitized, its scripts never run, remote images not loaded', async ({ page }) => {
+  const remote: string[] = [];
+  page.on('request', (request) => {
+    if (!request.url().startsWith('http://localhost:')) remote.push(request.url());
+  });
   await scan(page, 'https://github.com/JetBrains/untrusted');
   await expect(article(page).getByRole('heading', { level: 1, name: 'Untrusted' })).toBeVisible();
   await expect(article(page).locator('strong')).toHaveText('bold');
@@ -114,6 +118,8 @@ test('the SKILL.md is untrusted: sanitized, its scripts never run', async ({ pag
   await article(page).getByText('click').click();
   await expect(article(page).locator('script, [onerror]')).toHaveCount(0);
   expect(await page.evaluate(() => (globalThis as { pwned?: string }).pwned)).toBeUndefined();
+  await expect(article(page).getByRole('img', { name: 'tracker' })).toBeAttached();
+  expect(remote).toEqual([]);
 });
 
 test('no skills → `No skills found`', async ({ page }) => {
