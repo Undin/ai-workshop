@@ -1,6 +1,6 @@
 ---
 name: demo-feature
-description: "Record a demo of a new or changed feature of the web view for its pull request: a Playwright script, demos/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm) and screenshots of its key points (demos/<name>/<nn>-<point>.png); on GitHub, the Demos workflow records it again, and its screenshots are the ones committed and shown in the pull request with a link to its video. Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
+description: "Record a demo of a new or changed feature of the web view for its pull request: a Playwright script, demos/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm) and screenshots of its key points (demos/out/<name>/<nn>-<point>.png); on GitHub, the Demos workflow records every demo on each push to a pull request, and its screenshots are the ones committed (demos/<name>/) and shown in the pull request with a link to its video. Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
 ---
 
 Takes the feature (an issue, a pull request, or the spec cases of the change) and makes a demo of
@@ -45,7 +45,7 @@ the issue (`#<n>`), the repository it runs on. Import from `./demo.ts`, not `@pl
 - `type(field, text, delay?)`: clicks the field (so the pointer goes there), clears it, types it
   key by key. Never `fill()`: the viewer must see the typing.
 - `pause(page, ms?)`: after each result, time to read it (1 to 3 s).
-- `keyPoint(page, name)`: a screenshot, `demos/<name>/<nn>-<point>.png`, numbered in order. Take it
+- `keyPoint(page, name)`: a screenshot, `demos/out/<name>/<nn>-<point>.png`, numbered in order. Take it
   **right after the assertions** of that moment, so it shows a checked state; `<point>` says
   what it shows (`filtered-by-editor`, `stopped`).
 - `faster(page, factor, wait)`: a wait where nothing happens (a scan, a list loading) plays
@@ -82,7 +82,7 @@ A failing assertion is either a demo bug or a feature bug: fix the demo, or stop
 feature bug (implement-issue: back to its step 4); never loosen an assertion to get a video.
 
 Then **look at it**; a passing demo can still be a bad video. You can't play a video: look at
-its frames and at every screenshot (Read the PNGs):
+its frames and at every screenshot, `demos/out/<name>/` (Read the PNGs):
 
 ```bash
 ffprobe -v error -show_entries format=duration -of csv=p=0 demos/out/<name>.webm
@@ -101,17 +101,17 @@ The demo script, `demos/<name>.demo.ts`, in one commit (`Demo: <the feature> (#<
 `demos/out/` is never committed.
 
 The screenshots committed, `demos/<name>/`, are the ones of a run on GitHub, the Demos workflow
-([demos.yml](../../../.github/workflows/demos.yml)): from implement-issue, its step 6 runs it and
-commits them. The local ones were for looking at: put `demos/<name>/` back as it was
-(`git restore demos/<name>/ && git clean -fd demos/<name>/`). Asked for a demo directly, outside
-implement-issue: run the workflow the same way (implement-issue step 6), or, if it can't run yet
-(not on the default branch), commit the local screenshots and say so.
+([demos.yml](../../../.github/workflows/demos.yml)): it records every demo on each push to a pull
+request, and from implement-issue, its step 7 commits them, a commit of their own. The local ones,
+`demos/out/<name>/`, were for looking at. Asked for a demo directly, outside implement-issue: the
+same way (implement-issue steps 6 and 7), or, on a branch with no pull request,
+`gh workflow run Demos --ref <branch>`.
 
 ### 6. Into the pull request
 
 implement-issue step 7 puts a `## Demo` section in the pull request's description: for each demo
 its screenshots inline, linked at their commit, and a link to its video, the `<name>.webm`
-artifact of the Demos run. Updating the description of an existing pull request
+artifact of the Demos run they came from. Updating the description of an existing pull request
 (`gh pr edit --body`) changes what reviewers see: ask first, unless this run is the one creating it.
 
 ### 7. Report

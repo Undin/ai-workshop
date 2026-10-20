@@ -1,11 +1,11 @@
 ---
 name: implement-issue
-description: "Implement a GitHub issue end to end the way AGENTS.md defines done: the spec first (asking the user whatever the issue leaves unclear), then the code with an integration test for every spec case, local green, for a new or changed feature of the web view its demo run on GitHub (the Demos workflow) with its screenshots committed, a pull request with green CI showing them and linking the video, and every review comment on it addressed; it announces the start of the work in a comment on the issue (or the pull request). Use when the user gives an issue number or URL to implement, or asks to address the comments on the pull request for one (`--pr <number>`)."
+description: "Implement a GitHub issue end to end the way AGENTS.md defines done: the spec first (asking the user whatever the issue leaves unclear), then the code with an integration test for every spec case, local green, a pull request with green CI (the Demos workflow included: it records every demo), for a new or changed feature of the web view its demo's screenshots from that run committed and shown in the pull request with a link to its video, and every review comment on it addressed; it announces the start of the work in a comment on the issue (or the pull request). Use when the user gives an issue number or URL to implement, or asks to address the comments on the pull request for one (`--pr <number>`)."
 ---
 
 Takes `<issue number | issue URL>` and drives it through the workflow in
 [AGENTS.md](../../../AGENTS.md): **discuss → branch → spec + code + tests, committed → local green →
-demos on GitHub, their screenshots committed → pull request with them → green CI → review comments**. AGENTS.md is the source of truth: where this skill
+pull request → green CI, demos included → their screenshots committed and in the pull request → review comments**. AGENTS.md is the source of truth: where this skill
 and AGENTS.md differ, follow AGENTS.md.
 
 With `--pr <number>`, it resumes on an existing pull request:
@@ -15,7 +15,7 @@ With `--pr <number>`, it resumes on an existing pull request:
 2. `gh pr checkout <pr>`: work on the pull request's branch, never on whatever is checked out.
 3. The issue it implements: `gh pr view <pr> --json closingIssuesReferences,body`
    (`Closes #<n>` in the body otherwise); read it as in Process step 1 (Read the issue). The spec
-   cases are the ones the pull request body lists (Process step 7 puts them there); with no linked
+   cases are the ones the pull request body lists (Process step 6 puts them there); with no linked
    issue, the pull request body is the agreed spec.
 4. Announce the start on the pull request (see _Status comments_):
    `🛠️ Started addressing the review comments.`
@@ -92,7 +92,7 @@ comment instead of posting a new one.
 - **Demo**: if the change adds a feature visible in the web view or changes one (`src/web/`,
   `spec/web.md`), follow [demo-feature](../demo-feature/SKILL.md) once the feature's tests pass:
   a new demo, or the feature's existing one updated, of exactly the spec cases, run and looked at
-  locally, the script committed; its screenshots come from GitHub (step 6). Nothing visible
+  locally, the script committed; its screenshots come from GitHub (step 7). Nothing visible
   changed: no demo.
 - **Commit** as you go, in a few logical steps as AGENTS.md describes (e.g. the spec with the
   feature and its tests, then the e2e expectations, then the docs). Messages in the style of
@@ -110,38 +110,46 @@ Fix with new commits and re-run until all are green. Never weaken, skip or delet
 there; if a test looks wrong, the spec decides, and if the spec doesn't, ask the user. Then check
 again that each spec case (from step 2, or with `--pr` from the pull request body) has its test.
 
-### 6. Demos
+### 6. Pull request and CI
 
-Only if the change adds a feature of the web view or changes one; else skip to step 7. The demos
-to run: the ones step 4 added or changed, and the existing demo of each feature it changed even if
+```bash
+git push -u origin <branch>
+gh pr create --base main --title "<what>" --body "<what and why; the spec cases; Closes #<n>>"
+gh pr checks <pr> --watch
+```
+
+Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
+
+The checks include the Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)): on every
+push to a pull request it records every demo on real repositories, and keeps for each one its video,
+`<name>.webm`, and the screenshots of its key points, `<name>-screenshots`, as artifacts.
+
+A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally, fix it with a
+**new commit** (no force-push), push, and watch again, until every check is green. A red Demos run is
+a demo failing on real repositories: its video and the screenshots it got to are still kept, and
+show where (`gh run download <run-id> -n <name>.webm`); fix the demo, or the feature (back to step 4).
+
+### 7. Demos
+
+Only if the change adds a feature of the web view or changes one; else go to step 8. The demos to
+show: the ones step 4 added or changed, and the existing demo of each feature it changed even if
 the script stayed the same (what it shows did not):
 
 ```bash
 git diff --name-only --diff-filter=d origin/main...HEAD -- 'demos/*.demo.ts'   # demos/<name>.demo.ts
 ```
 
-The Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)) is not part of CI: it runs
-only when asked, records the demos it is given on real repositories, and keeps for each one its
-video, `<name>.webm`, and the screenshots of its key points, `<name>-screenshots`, as artifacts.
-Its screenshots are the ones committed, not the local ones: push, run it on the branch for exactly
-those demos, and wait for it:
+Their screenshots committed are the ones of the green Demos run of the pull request's head, not the
+local ones:
 
 ```bash
-git push -u origin <branch>
-gh workflow run Demos --ref <branch> -f demos='<name> <name>'
-# its run, on the pushed commit (it may take a few seconds to appear: ask again until it does)
-run=$(gh run list --workflow Demos --event workflow_dispatch --branch <branch> --commit "$(git rev-parse HEAD)" \
-  --json databaseId --jq '.[0].databaseId')
-gh run watch "$run" --exit-status
+run=$(gh run list --workflow Demos --event pull_request --commit "$(git rev-parse HEAD)" \
+  --json databaseId,conclusion --jq '.[0] | select(.conclusion == "success") | .databaseId')
 ```
 
-A red run is a demo failing on real repositories: its video and the screenshots it got to are still
-kept, and show where (`gh run download "$run" -n <name>.webm`, `gh run view "$run" --log-failed`).
-Fix it with a new commit (the demo, or the feature: back to step 4), push, and run it again until
-green.
-
 Then take the screenshots of that run, **without the videos**, into the branch: each demo's
-directory replaced by its artifact (a key point removed from the demo goes with it), in one commit:
+directory replaced by its artifact (a key point removed from the demo goes with it), in a commit of
+their own:
 
 ```bash
 rm -rf demos/<name> && gh run download "$run" -n <name>-screenshots -D demos/<name>   # each demo
@@ -149,21 +157,10 @@ git add demos/ && git commit -m "Demo: the screenshots of <the feature> (#<n>), 
 git push
 ```
 
-Keep `$run`: step 7 links its videos. `gh workflow run` fails while demos.yml is not on the
-default branch yet: then commit the local screenshots instead (`npm run demo -- <name>`), and say
-in the pull request and the report that the video is missing and why.
-
-### 7. Pull request and CI
-
-```bash
-git push -u origin <branch>
-gh pr create --base main --title "<what>" --body "<what and why; the spec cases; the demo; Closes #<n>>"
-gh pr checks <pr> --watch
-```
-
-The description has a `## Demo` section if step 6 ran, and none otherwise: for each demo, one line
-on what it shows, its screenshots inline, linked at the commit of step 6 so they stay as they
-were, and its video, the artifact of the Demos run (an artifact can't play inline: a link):
+That push records the demos again: `gh pr checks <pr> --watch` until green. The description, `gh pr
+edit <pr> --body`, gets a `## Demo` section: for each demo, one line on what it shows, its
+screenshots inline, linked at the commit just made so they stay as they were, and its video, the
+artifact of `$run`, the run they came from (an artifact can't play inline: a link):
 
 ```bash
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -183,10 +180,7 @@ gh api "repos/$repo/actions/runs/$run/artifacts" \
 🎬 [The video: <name>.webm](<artifact url>) (a GitHub login opens it; kept 90 days)
 ```
 
-Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
-
-A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally, fix it with a
-**new commit** (no force-push), push, and watch again, until every check is green.
+No `## Demo` section when no demo is shown.
 
 ### 8. Review comments
 
@@ -248,7 +242,7 @@ For each unanswered one:
     answers each point.
 
 Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch` until green, and
-if a demo or its feature changed, step 6 again for it (a new Demos run, its screenshots committed)
+if a demo or its feature changed, step 7 again for it (the screenshots of the new Demos run committed)
 and its `## Demo` section pointed at them (`gh pr edit <pr> --body`). The pull request already exists:
 don't run `gh pr create` again.
 
