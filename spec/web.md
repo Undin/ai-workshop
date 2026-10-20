@@ -13,6 +13,11 @@ running one, and its result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - The repository, `JetBrains/kotlin · 6 skills`, and its **skills**, sorted by **name**: the name,
   the description's *first sentence* in at most *two lines* (cut with `…`, whole on hover),
   `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
+- A **filter** field above the skills, when there are any: it keeps the skills whose *name* or
+  *first sentence* contains its text, in any case, spaces around it aside; at once as it is typed,
+  no new scan; each match of it is **marked** there, in the name and the first sentence
+- Under it, the count: `Showing 2 of 10 skills`; nothing kept → `No skills match <text>`
+- The filter does not change the chosen skill; a new scan empties it; the address does not keep it
 - A chosen skill's **SKILL.md**: the front matter as a table, the body as *Markdown*, and its link
   on GitHub at the *scanned commit*; in a directory, the file's path as text (a web page cannot
   open a `file://` link); the first skill is chosen at first

@@ -13,7 +13,7 @@ build-tools-bump-gradle-api — Bumps the Gradle API version that Kotlin Gradle 
 …
 ```
 
-Or in a local web view: a field for a repository link, its skills and their SKILL.md.
+Or in a local web view: a field for a repository link, its skills (with a filter) and their SKILL.md.
 
 ```console
 $ ./skill-atlas serve
