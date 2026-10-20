@@ -17,7 +17,7 @@ export type Context = {
 const usage = `Usage: skill-atlas <command>
 
   scan <GitHub URL | directory>   find every SKILL.md in a repository and print it
-  serve [--port <port>]           open the web view on http://localhost:3000
+  serve [--port <port>]           open the web view on http://127.0.0.1:3000
   help                            show this help`;
 
 /** Runs one command; returns its exit code. */

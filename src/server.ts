@@ -16,16 +16,18 @@ export type ServerOptions = {
 const web = (file: string) => fileURLToPath(new URL(`web/${file}`, import.meta.url));
 
 /** The files the page loads: its own, and the browser builds of its two libraries. */
+const JS = 'text/javascript; charset=utf-8';
 const FILES: Record<string, { path: string; type: string }> = {
   '/': { path: web('index.html'), type: 'text/html; charset=utf-8' },
-  '/app.js': { path: web('app.js'), type: 'text/javascript; charset=utf-8' },
+  '/app.js': { path: web('app.js'), type: JS },
   '/style.css': { path: web('style.css'), type: 'text/css; charset=utf-8' },
-  '/vendor/marked.js': { path: fileURLToPath(import.meta.resolve('marked')), type: 'text/javascript; charset=utf-8' },
-  '/vendor/purify.js': { path: fileURLToPath(import.meta.resolve('dompurify')), type: 'text/javascript; charset=utf-8' },
+  '/vendor/marked.js': { path: fileURLToPath(import.meta.resolve('marked')), type: JS },
+  '/vendor/purify.js': { path: fileURLToPath(import.meta.resolve('dompurify')), type: JS },
 };
 
-// Scripts only from the server itself; a SKILL.md may show images from anywhere.
-const POLICY = "default-src 'self'; img-src 'self' https: data:; object-src 'none'; base-uri 'none'";
+// Everything from the server itself: an untrusted SKILL.md can neither run a script nor load a
+// remote image, which would tell its server who opened it.
+const POLICY = "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'";
 
 export function createAtlasServer({ open }: ServerOptions): Server {
   return createServer((request, response) => {
@@ -44,15 +46,25 @@ export function listen(server: Server, port: number): Promise<URL> {
     );
     server.listen(port, '127.0.0.1', () => {
       const address = server.address();
-      resolve(new URL(`http://localhost:${typeof address === 'object' && address ? address.port : port}/`));
+      // The address it listens on: `localhost` may resolve to ::1 first.
+      resolve(new URL(`http://127.0.0.1:${typeof address === 'object' && address ? address.port : port}/`));
     });
   });
 }
 
 async function handle(request: IncomingMessage, response: ServerResponse, open: ServerOptions['open']) {
+  // Against DNS rebinding: a page on another site that resolves its own name to 127.0.0.1 is
+  // not let in, so it cannot read local directories or use GITHUB_TOKEN.
+  const port = request.socket.localPort;
+  if (request.headers.host !== `localhost:${port}` && request.headers.host !== `127.0.0.1:${port}`) {
+    return send(response, 403, { error: `Not served to ${request.headers.host ?? 'no host'}: open http://127.0.0.1:${port}/` });
+  }
   const url = new URL(request.url ?? '/', 'http://localhost');
-  if (request.method !== 'GET' && request.method !== 'HEAD') return send(response, 405, { error: 'Only GET' });
-  if (url.pathname === '/api/scan') return send(response, ...(await scanAnswer(url.searchParams.get('source'), open)));
+  if (url.pathname === '/api/scan') {
+    if (request.method !== 'GET') return send(response, 405, { error: 'Only GET' });
+    return send(response, ...(await scanAnswer(url.searchParams.get('source'), open)));
+  }
+  if (request.method !== 'GET' && request.method !== 'HEAD') return send(response, 405, { error: 'Only GET and HEAD' });
   const file = FILES[url.pathname];
   if (!file) return send(response, 404, { error: `Not found: ${url.pathname}` });
   response.writeHead(200, { 'Content-Type': file.type, 'Content-Security-Policy': POLICY, 'Cache-Control': 'no-store' });

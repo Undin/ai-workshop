@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
+import { request } from 'node:http';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -41,7 +42,7 @@ test('GET / → the page, scripts only from the server', async () => {
   const { response, body } = await get('/');
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type')!, /^text\/html/);
-  assert.match(response.headers.get('content-security-policy')!, /default-src 'self'/);
+  assert.match(response.headers.get('content-security-policy')!, /default-src 'self'; img-src 'self' data:;/);
   assert.match(body, /<title>Skill Atlas<\/title>/);
   for (const path of ['/app.js', '/style.css', '/vendor/marked.js', '/vendor/purify.js']) {
     assert.equal((await get(path)).response.status, 200, path);
@@ -97,10 +98,34 @@ test('an empty field, an unreachable repository → 400 and the CLI message', as
   assert.match((offline.body as { error: string }).error, /^Cannot reach GitHub: /);
 });
 
-test('anything else → 404; not GET → 405', async () => {
+test('anything else → 404; not GET → 405; the scan, not HEAD either', async () => {
   assert.equal((await get('/no-such-page')).response.status, 404);
   assert.equal((await get('/../package.json')).response.status, 404);
   assert.equal((await get('/api/scan', { method: 'POST' })).response.status, 405);
+  assert.equal((await get('/', { method: 'HEAD' })).response.status, 200);
+  assert.equal((await get(`/api/scan?source=${encodeURIComponent(FIXTURE)}`, { method: 'HEAD' })).response.status, 405);
+});
+
+/** A request with this Host header; fetch() always sends the real one. */
+function withHost(host: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const sent = request(new URL(`/api/scan?source=${encodeURIComponent(FIXTURE)}`, base), { headers: { host } }, (response) => {
+      let body = '';
+      response.setEncoding('utf8').on('data', (chunk: string) => (body += chunk));
+      response.on('end', () => resolve({ status: response.statusCode!, body }));
+    });
+    sent.on('error', reject).end();
+  });
+}
+
+test('only for localhost and 127.0.0.1: another name → 403 (DNS rebinding)', async () => {
+  const port = base.port;
+  for (const host of [`localhost:${port}`, `127.0.0.1:${port}`]) assert.equal((await withHost(host)).status, 200, host);
+  for (const host of [`attacker.example:${port}`, 'localhost', `localhost:${Number(port) + 1}`, `localhost.attacker.example:${port}`]) {
+    const answer = await withHost(host);
+    assert.equal(answer.status, 403, host);
+    assert.deepEqual(JSON.parse(answer.body), { error: `Not served to ${host}: open http://127.0.0.1:${port}/` });
+  }
 });
 
 test('skill-atlas serve: prints its address, serves the page, stores nothing', async (t) => {
@@ -109,7 +134,7 @@ test('skill-atlas serve: prints its address, serves the page, stores nothing', a
   const served = spawn(process.execPath, [CLI, 'serve', '--port', '0'], { cwd, stdio: ['ignore', 'pipe', 'inherit'] });
   t.after(() => served.kill());
   const [line] = (await once(served.stdout, 'data')) as [Buffer];
-  const address = /^Skill Atlas: (http:\/\/localhost:\d+\/)\n$/.exec(line.toString())?.[1];
+  const address = /^Skill Atlas: (http:\/\/127\.0\.0\.1:\d+\/)\n$/.exec(line.toString())?.[1];
   assert.ok(address, line.toString());
   const scanned = await (await fetch(`${address}api/scan?source=${encodeURIComponent(FIXTURE)}`)).json();
   assert.equal((scanned as Scanned).repository.id, 'fixture');
