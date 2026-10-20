@@ -5,6 +5,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { fileURLToPath } from 'node:url';
 import { AtlasError } from './core/errors.ts';
 import { firstSentence, skillLink } from './core/model.ts';
+import { parseSkill } from './core/parse.ts';
 import { scan, type Source } from './core/scan.ts';
 
 export type ServerOptions = {
@@ -58,16 +59,15 @@ async function handle(request: IncomingMessage, response: ServerResponse, open: 
   response.end(request.method === 'HEAD' ? undefined : await readFile(file.path));
 }
 
-/** The scan as the page shows it: each skill with its link and first sentence. */
+/** The scan as the page shows it: each skill with its link, first sentence and SKILL.md parts. */
 async function scanAnswer(source: string | null, open: ServerOptions['open']): Promise<[number, unknown]> {
   if (!source?.trim()) return [400, { error: 'Enter a GitHub repository URL or a directory' }];
   try {
     const result = await scan(await open(source.trim()));
-    const skills = result.skills.map((skill) => ({
-      ...skill,
-      link: skillLink(result.repository, skill),
-      summary: firstSentence(skill.description),
-    }));
+    const skills = result.skills.map((skill) => {
+      const { properties, body } = parseSkill(skill.text);
+      return { ...skill, link: skillLink(result.repository, skill), summary: firstSentence(skill.description), properties, body };
+    });
     return [200, { repository: result.repository, skills, warnings: result.warnings }];
   } catch (error) {
     if (!(error instanceof AtlasError)) throw error;
