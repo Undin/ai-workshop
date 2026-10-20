@@ -85,6 +85,27 @@ test('the filter: the skills whose name or first sentence contains its text, in 
   await expect(page.getByText('Showing 10 of 10 skills')).toBeVisible();
 });
 
+test('the filter: each match of its text is marked in the name and the first sentence', async ({ page }) => {
+  await scan(page, FIXTURE);
+  await expect(skills(page).locator('mark')).toHaveCount(0);
+  // In any case, as it is written in the skill.
+  await page.getByLabel('Filter').fill('deploy');
+  await expect(skills(page).locator('.name mark')).toHaveText(['deploy', 'deploy']);
+  await expect(skills(page).locator('.summary mark')).toHaveText(['Deploy', 'Deploy']);
+  await expect(skills(page).locator('.summary').first()).toHaveText('Deploy the API to staging.');
+  // Every match: `the` and `the` of `their`; the whole sentence still on hover.
+  await page.getByLabel('Filter').fill('THE');
+  const upgrade = skills(page).filter({ hasText: /^upgrade/ });
+  await expect(upgrade.locator('.summary mark')).toHaveText(['the', 'the']);
+  await expect(upgrade.locator('.summary')).toHaveAttribute('title', 'Upgrade the dependencies to their latest versions.');
+  // The text, not a pattern: `.` is a dot.
+  await page.getByLabel('Filter').fill('.md');
+  await expect(skills(page).locator('.name')).toHaveText(['changelog']);
+  await expect(skills(page).locator('mark')).toHaveText(['.md']);
+  await page.getByLabel('Filter').fill('');
+  await expect(skills(page).locator('mark')).toHaveCount(0);
+});
+
 test('the filter keeps nothing → `No skills match <text>`', async ({ page }) => {
   await scan(page, FIXTURE);
   await page.getByLabel('Filter').fill(' kotlin ');

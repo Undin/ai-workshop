@@ -78,9 +78,10 @@ function render({ repository, skills, warnings }) {
   const items = skills.map((skill) => {
     const button = element('button', '');
     button.type = 'button';
-    button.append(element('span', skill.name, 'name'));
-    if (skill.summary) {
-      const summary = element('span', skill.summary, 'summary');
+    const name = element('span', skill.name, 'name');
+    button.append(name);
+    const summary = skill.summary ? element('span', skill.summary, 'summary') : undefined;
+    if (summary) {
       summary.title = skill.summary;
       button.append(summary);
     }
@@ -88,7 +89,7 @@ function render({ repository, skills, warnings }) {
     button.addEventListener('click', () => choose(skill, button));
     const item = element('li', '');
     item.append(button);
-    return { skill, item, button };
+    return { skill, item, button, name, summary };
   });
   $('#skills').replaceChildren(...items.map(({ item }) => item));
   listed = items;
@@ -100,15 +101,19 @@ function render({ repository, skills, warnings }) {
   else $('#skill').hidden = true;
 }
 
-/** Keeps the skills whose name or first sentence contains the filter's text, in any case. */
+/** Keeps the skills whose name or first sentence contains the filter's text, in any case; marks it there. */
 function applyFilter() {
   const text = filter.value.trim();
-  const wanted = text.toLowerCase();
+  // The text as it is typed, not a pattern: `.` is a dot.
+  const wanted = text && new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu');
   let shown = 0;
-  for (const { skill, item } of listed) {
-    const kept = !wanted || [skill.name, skill.summary].some((field) => field.toLowerCase().includes(wanted));
+  for (const { skill, item, name, summary } of listed) {
+    const kept = !wanted || [skill.name, skill.summary].some((field) => field.search(wanted) >= 0);
     item.hidden = !kept;
-    if (kept) shown++;
+    if (!kept) continue;
+    shown++;
+    name.replaceChildren(...highlighted(skill.name, wanted));
+    summary?.replaceChildren(...highlighted(skill.summary, wanted));
   }
   $('#shown').textContent = shown ? `Showing ${shown} of ${listed.length} ${listed.length === 1 ? 'skill' : 'skills'}` : `No skills match ${text}`;
 }
@@ -140,6 +145,19 @@ function choose(skill, button) {
   });
   $('#front-matter tbody').replaceChildren(...rows);
   $('#skill-body').innerHTML = DOMPurify.sanitize(marked.parse(skill.body, { async: false }));
+}
+
+/** The text, each match of `wanted` in a `<mark>`. */
+function highlighted(text, wanted) {
+  if (!wanted) return [text];
+  const parts = [];
+  let end = 0;
+  for (const match of text.matchAll(wanted)) {
+    parts.push(text.slice(end, match.index), element('mark', match[0]));
+    end = match.index + match[0].length;
+  }
+  parts.push(text.slice(end));
+  return parts.filter((part) => part !== '');
 }
 
 function alsoIn(skill) {
