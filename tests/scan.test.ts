@@ -77,7 +77,7 @@ test('./fixture: every skill, sorted by name, linked to its file, with its copie
   assert.equal(
     fixture.stdout,
     [
-      'fixture · 8 skills',
+      'fixture · 10 skills',
       'changelog — Update CHANGELOG.md for a release.',
       `  ${link('skills/changelog/SKILL.md')}`,
       '  also in .cursor/skills/changelog/SKILL.md',
@@ -98,6 +98,10 @@ test('./fixture: every skill, sorted by name, linked to its file, with its copie
       'review-pr — Review a pull request for correctness.',
       `  ${link('plugins/review/skills/review-pr/SKILL.md')}`,
       '  also in agent/skills/review-pr/SKILL.md',
+      'run-tests — Run the tests before pushing.',
+      `  ${link('.claude/skills/run-tests/SKILL.md')}`,
+      'upgrade — Upgrade the dependencies to their latest versions.',
+      `  ${link('tools/latest/skills/upgrade/SKILL.md')}`,
     ].join('\n'),
   );
   assert.deepEqual(
@@ -107,7 +111,7 @@ test('./fixture: every skill, sorted by name, linked to its file, with its copie
       'warning: .claude/skills/missing: link to ../../no-such-skill, not followed',
       'warning: .claude/skills/outside/SKILL.md: link to ../../../../README.md, not followed',
       'warning: packages/app/.claude/skills/deploy/SKILL.md: same name as packages/api/.claude/skills/deploy/SKILL.md, different content',
-      'warning: skipped 3 SKILL.md in test data',
+      'warning: skipped 7 SKILL.md in test data',
     ],
   );
 });
@@ -151,14 +155,28 @@ test('not named exactly SKILL.md → not a skill', () => {
 // Not a skill: test data.
 
 test('test data → skipped, with one warning for all of it', () => {
-  for (const path of ['tests/skills/sample/SKILL.md', 'src/test/resources/.claude/skills/sample/SKILL.md', 'examples/skills/demo/SKILL.md']) {
+  for (const path of [
+    'tests/skills/sample/SKILL.md',
+    'src/test/resources/.claude/skills/sample/SKILL.md',
+    'examples/skills/demo/SKILL.md',
+    // As in JetBrains/koog: a test resource of a project that loads skills.
+    'integration-tests/src/jvmTest/resources/skills/arithmetic-evaluator/SKILL.md',
+    'src/commonTest/resources/skills/weather-retrieval/SKILL.md',
+    'e2e-tests/skills/smoke/SKILL.md',
+    'lib/testFixtures/skills/stub/SKILL.md',
+  ]) {
     assert.ok(!listed(path), `${path} is test data`);
   }
-  assert.doesNotMatch(fixture.stdout, /^(sample|demo)\b/m);
+  assert.doesNotMatch(fixture.stdout, /^(sample|demo|arithmetic-evaluator|weather-retrieval|smoke|stub)\b/m);
   assert.deepEqual(
     warnings().filter((line) => line.includes('test data')),
-    ['warning: skipped 3 SKILL.md in test data'],
+    ['warning: skipped 7 SKILL.md in test data'],
   );
+});
+
+test('test data is named after tests: a word, a source set; not a skill named so, not a word that contains it', () => {
+  assert.equal(skill('.claude/skills/run-tests/SKILL.md')?.title, 'run-tests — Run the tests before pushing.');
+  assert.equal(skill('tools/latest/skills/upgrade/SKILL.md')?.title, 'upgrade — Upgrade the dependencies to their latest versions.');
 });
 
 test('a project that works with skills: its fixture is test data, not its skills', async () => {

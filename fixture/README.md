@@ -20,4 +20,10 @@ A small repository for the tests: one case per rule in [spec/analysis.md](../spe
 | `.claude/skills/outside/SKILL.md` | a link outside the repository: a warning |
 | `docs/SKILL.md`, `skills/SKILL.md`, `skills/group/nested` | not in `skills/<name>/`: not skills |
 | `.claude/skills/lowercase/skill.md`, `.claude/skills/backup/SKILL.md.bak` | not the exact name: not skills |
-| `tests/skills/sample`, `src/test/resources/.claude/skills/sample`, `examples/skills/demo` | test data: skipped, one warning for 3 |
+| `tests/skills/sample`, `src/test/resources/.claude/skills/sample`, `examples/skills/demo` | test data |
+| `integration-tests/src/jvmTest/resources/skills/arithmetic-evaluator` | test data, as in JetBrains/koog |
+| `src/commonTest/resources/skills/weather-retrieval`, `lib/testFixtures/skills/stub` | test data: a source set |
+| `e2e-tests/skills/smoke` | test data: the word `tests` |
+| (all 7 above) | skipped, one warning for 7 |
+| `.claude/skills/run-tests` | a skill: its own name does not make it test data |
+| `tools/latest/skills/upgrade` | a skill: `latest` is not the word `test` |

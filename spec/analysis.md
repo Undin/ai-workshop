@@ -28,7 +28,13 @@ The front matter, else the directory; a root `SKILL.md`: the repository
   (`.github/skills → ../.claude/skills`) is followed, and each skill it reaches is a *copy* of its target; the target is the skill, whatever the path order
 - A link that is broken or points outside the repository → a warning: `<path>: link to <target>, not followed`
 ### Not a skill: test data
-- A path segment `test`, `tests`, `__tests__`, `testdata`, `test-data`, `fixture`, `fixtures` or `examples`
+- A directory **above** `skills/` named:
+  - `__tests__`, `testdata`, `fixture`, `fixtures` or `examples`, in any case
+  - with the *word* `test` or `tests`: `test`, `integration-tests`, `e2e_test`, `test-data`
+  - a *source set*: `jvmTest`, `commonTest`, `androidUnitTest`, `testFixtures`
+    (as in JetBrains/koog: `integration-tests/src/jvmTest/resources/skills/…`)
+- Not a word that contains it: `latest`, `contest`, `pytest`
+- Not the skill's own directory: `.claude/skills/run-tests` is a skill
 - Counted from the scanned root: `scan ./fixture` still finds the fixture's skills
 - Skipped, with one warning: `skipped N SKILL.md in test data`
 ## Architecture

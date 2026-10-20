@@ -70,7 +70,7 @@ export async function scan(source: Source): Promise<ScanResult> {
 
 /** Each link's target; links in test data are not read. */
 async function readLinks(source: Source): Promise<Map<string, string>> {
-  const links = source.links.filter((link) => !isTestData(`${link}/`));
+  const links = source.links.filter((link) => !isTestData(link));
   const targets = await Promise.all(links.map((link) => source.readLink(link)));
   return new Map(links.flatMap((link, index) => (targets[index] === undefined ? [] : [[link, targets[index]]])));
 }

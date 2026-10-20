@@ -10,7 +10,15 @@ export type Found = { files: SkillFile[]; warnings: string[] };
 export const SKILL_ROOTS = ['.agents/skills', '.claude/skills', '.github/skills', 'agent/skills'];
 
 /** Directories that hold a project's test data: a SKILL.md in them is not the project's skill. */
-const TEST_DATA = new Set(['test', 'tests', '__tests__', 'testdata', 'test-data', 'fixture', 'fixtures', 'examples']);
+const TEST_DATA = new Set(['__tests__', 'testdata', 'fixture', 'fixtures', 'examples']);
+
+/**
+ * A directory named after tests: `test`, `tests`, the word in `integration-tests` or `e2e_test`,
+ * or a source set such as `jvmTest`, `androidUnitTest` or `testFixtures`. Not `latest`, `contest`.
+ */
+function isTests(segment: string): boolean {
+  return /(?:^|[-_.])tests?(?:$|[-_.])/.test(segment.toLowerCase()) || /[a-z0-9]Tests?$|^test[A-Z]/.test(segment);
+}
 
 /** More links in a row than this is a loop. */
 const MAX_HOPS = 40;
@@ -21,9 +29,16 @@ export function isSkillPath(path: string): boolean {
   return path === 'SKILL.md' || (segments.at(-1) === 'SKILL.md' && segments.at(-3) === 'skills');
 }
 
-/** Under a test data directory, counted from the scanned root. */
+/**
+ * Under a test data directory, counted from the scanned root. Only the directories above the last
+ * `skills/` count: a skill's own name, such as `run-tests`, does not make it test data.
+ */
 export function isTestData(path: string): boolean {
-  return path.split('/').slice(0, -1).some((segment) => TEST_DATA.has(segment));
+  const segments = path.split('/');
+  const skills = segments.lastIndexOf('skills');
+  return segments
+    .slice(0, skills < 0 ? -1 : skills)
+    .some((segment) => TEST_DATA.has(segment.toLowerCase()) || isTests(segment));
 }
 
 /**
@@ -37,7 +52,7 @@ export function findSkills(paths: string[], links: Map<string, string>, reposito
   const candidates = paths.map((path) => ({ path, file: path, linked: false }));
 
   for (const [link, target] of links) {
-    if (isTestData(`${link}/`)) continue;
+    if (isTestData(link)) continue;
     const resolved = resolveLink(link, links);
     const reached = resolved === undefined ? [] : reach(resolved, link, paths, regular);
     if (reached.length === 0) {
