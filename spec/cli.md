@@ -2,6 +2,8 @@
 `./skill-atlas scan <GitHub URL | directory>`
 Prints the result **at once**; *nothing is stored*.
 `GITHUB_TOKEN`, optional: a higher GitHub rate limit.
+
+`./skill-atlas serve [--port <port>]`: the [web view](web.md), until stopped.
 ## Output
 ```
 JetBrains/kotlin · 6 skills

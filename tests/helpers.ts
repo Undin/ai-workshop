@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { run } from '../src/commands.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { openSource } from '../src/open.ts';
+import { createAtlasServer } from '../src/server.ts';
 
 export const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 export const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
@@ -37,4 +38,9 @@ export async function atlas(args: string[]) {
     error: (text) => stderr.push(text),
   });
   return { code, stdout: stdout.join('\n'), stderr: stderr.join('\n') };
+}
+
+/** The web view, as `skill-atlas serve` runs it, with GitHub answering from EXAMPLE. */
+export function atlasServer() {
+  return createAtlasServer({ open: (input) => openSource(input, { fetch: github, token: 'test' }) });
 }
