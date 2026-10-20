@@ -1,4 +1,4 @@
-// The implement-issue skill's wait-for-review.ts (step 7 of its SKILL.md), as the skill runs it: the
+// The implement-issue skill's wait-for-review.ts (step 8 of its SKILL.md), as the skill runs it: the
 // real process, with `gh` on the PATH answering from tests/fake-gh.ts.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';

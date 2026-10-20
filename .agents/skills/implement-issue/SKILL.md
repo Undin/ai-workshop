@@ -143,9 +143,13 @@ Their screenshots committed are the ones of the green Demos run of the pull requ
 local ones:
 
 ```bash
+# its run, on the pushed commit (it may take a few seconds to appear: ask again until it does)
 run=$(gh run list --workflow Demos --event pull_request --commit "$(git rev-parse HEAD)" \
-  --json databaseId,conclusion --jq '.[0] | select(.conclusion == "success") | .databaseId')
+  --json databaseId --jq '.[0].databaseId')
+[ -n "$run" ] && gh run watch "$run" --exit-status || { echo "No green Demos run for HEAD"; exit 1; }
 ```
+
+No green run (none yet, or a red one): don't touch `demos/<name>/`; back to step 6 for a red one.
 
 Then take the screenshots of that run, **without the videos**, into the branch: each demo's
 directory replaced by its artifact (a key point removed from the demo goes with it), in a commit of
