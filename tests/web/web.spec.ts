@@ -81,7 +81,7 @@ test("a chosen skill's SKILL.md: the front matter as a table, the body as Markdo
   ]);
   // `# Commits` and `code` in the body are Markdown, rendered.
   await expect(article(page).getByRole('heading', { level: 1, name: 'Commits' })).toBeVisible();
-  await expect(article(page).locator('code')).toHaveText('editor: keep the caret after undo');
+  await expect(article(page).locator('#skill-body code')).toHaveText('editor: keep the caret after undo');
   await expect(article(page).getByText('also in .github/skills/commits/SKILL.md')).toBeVisible();
   // In a directory: the file's path as text, not a file:// link a web page cannot open.
   await expect(article(page).locator('#skill-location')).toHaveText(join(FIXTURE, '.claude/skills/commits/SKILL.md'));
@@ -105,10 +105,17 @@ test('on GitHub: the link pins the scanned commit', async ({ page }) => {
 });
 
 test('the SKILL.md is untrusted: sanitized, its scripts never run, remote images not loaded', async ({ page }) => {
+  // Chromium reports a request the CSP blocks too, so: no answer from anywhere else, and the
+  // CSP's violation for the image.
   const remote: string[] = [];
-  page.on('request', (request) => {
-    if (!request.url().startsWith('http://localhost:')) remote.push(request.url());
+  page.on('response', (response) => {
+    if (!response.url().startsWith('http://localhost:')) remote.push(response.url());
   });
+  // A script in the page, as text: the tests are type-checked without the DOM's types.
+  await page.addInitScript({
+    content: "globalThis.blocked = []; addEventListener('securitypolicyviolation', (event) => blocked.push(event.blockedURI));",
+  });
+  await page.reload();
   await scan(page, 'https://github.com/JetBrains/untrusted');
   await expect(article(page).getByRole('heading', { level: 1, name: 'Untrusted' })).toBeVisible();
   await expect(article(page).locator('strong')).toHaveText('bold');
@@ -117,6 +124,7 @@ test('the SKILL.md is untrusted: sanitized, its scripts never run, remote images
   await expect(article(page).locator('script, [onerror]')).toHaveCount(0);
   expect(await page.evaluate(() => (globalThis as { pwned?: string }).pwned)).toBeUndefined();
   await expect(article(page).getByRole('img', { name: 'tracker' })).toBeAttached();
+  await expect.poll(() => page.evaluate(() => (globalThis as { blocked?: string[] }).blocked)).toContain('https://tracker.example/pixel.png');
   expect(remote).toEqual([]);
 });
 
