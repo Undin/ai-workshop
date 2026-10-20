@@ -36,8 +36,10 @@ start();
 function start() {
   const source = new URLSearchParams(location.search).get('source') ?? '';
   input.value = source;
-  if (source) scan(source);
-  else show('', false);
+  if (source) return scan(source);
+  // Back to no repository: a scan still running must not show its result here.
+  current?.abort();
+  show('', false);
 }
 
 async function scan(source) {

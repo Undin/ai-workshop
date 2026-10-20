@@ -5,6 +5,8 @@ Prints the result **at once**; *nothing is stored*.
 `GITHUB_TOKEN`, optional: a higher GitHub rate limit.
 
 `./skill-atlas serve [--port <port>]`: the [web view](web.md), until stopped.
+`./skill-atlas help`: the commands; `serve` only where there is a server (not in the browser
+terminal, `src/browser.ts`).
 ## Output
 ```
 JetBrains/kotlin · 6 skills

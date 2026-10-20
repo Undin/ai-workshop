@@ -11,8 +11,9 @@ cd "$(dirname "$0")/../.."
 healthcheck() {
   echo "[healthcheck] typecheck"
   npm run typecheck
+  # Without the browser tests: they need Chromium, which CI installs (npm run test:web there).
   echo "[healthcheck] tests"
-  npm test
+  npm run test:unit
   echo "[healthcheck] CLI smoke on ./fixture"
   ./skill-atlas help >/dev/null
   ./skill-atlas scan ./fixture

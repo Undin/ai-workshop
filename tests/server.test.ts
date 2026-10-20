@@ -11,8 +11,10 @@ import { after, test } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
 import { createBrowserBackend } from '../src/browser.ts';
 import { run } from '../src/commands.ts';
-import { isServedHost, listen, type ErrorAnswer, type ScanAnswer } from '../src/server.ts';
-import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
+import { createAtlasServer, isServedHost, listen, type ErrorAnswer, type ScanAnswer } from '../src/server.ts';
+import type { Fetch } from '../src/core/github.ts';
+import { openSource } from '../src/open.ts';
+import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE, github } from './helpers.ts';
 
 const server = atlasServer();
 const base = await listen(server, 0);
@@ -91,6 +93,18 @@ test('an empty field → 400 and a hint; an unreachable repository, not a GitHub
   const cli = await atlas(['scan', gitlab]);
   assert.equal(cli.code, 1);
   assert.deepEqual((await scanOf(gitlab)).body, { error: cli.stderr });
+});
+
+test('GITHUB_TOKEN works as for scan: the server opens with openSource, and GitHub gets the token', async (t) => {
+  const seen: (string | undefined)[] = [];
+  const spy: Fetch = (url, init) => (seen.push(init?.headers?.Authorization), github(url, init));
+  const withToken = createAtlasServer({ open: (input) => openSource(input, { fetch: spy, token: 'secret' }) });
+  const address = await listen(withToken, 0);
+  t.after(() => withToken.close());
+  const answer = await fetch(new URL(`/api/scan?source=${encodeURIComponent('https://github.com/JetBrains/example')}`, address));
+  assert.equal(answer.status, 200);
+  // The API requests carry it; raw.githubusercontent.com is asked without.
+  assert.ok(seen.includes('Bearer secret'), String(seen));
 });
 
 test('anything else → 404; not GET → 405; the scan, not HEAD either', async () => {

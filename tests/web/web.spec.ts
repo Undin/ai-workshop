@@ -43,12 +43,18 @@ test('a long first sentence: at most two lines in the list, whole on hover', asy
   const sentence = `${'Explains every step of a very long procedure, '.repeat(8)}in detail.`;
   await expect(summary).toHaveText(sentence);
   await expect(summary).toHaveAttribute('title', sentence);
-  const { height, line, scrollHeight } = await summary.evaluate((node) => ({
-    height: node.getBoundingClientRect().height,
-    line: parseFloat(node.ownerDocument.defaultView!.getComputedStyle(node).lineHeight),
-    scrollHeight: node.scrollHeight,
-  }));
+  const { height, line, scrollHeight, clamp } = await summary.evaluate((node) => {
+    const style = node.ownerDocument.defaultView!.getComputedStyle(node);
+    return {
+      height: node.getBoundingClientRect().height,
+      line: parseFloat(style.lineHeight),
+      scrollHeight: node.scrollHeight,
+      clamp: style.getPropertyValue('-webkit-line-clamp'),
+    };
+  });
   expect(Math.round(height / line)).toBe(2);
+  // A line clamp cuts with `…`; the page has no other way to show it.
+  expect(clamp).toBe('2');
   expect(scrollHeight).toBeGreaterThan(height); // the rest is cut, not wrapped below
 });
 
@@ -154,6 +160,17 @@ test('the address keeps the link: a reload or a shared link scans it again', asy
   await expect(page.getByRole('heading', { name: 'JetBrains/example · 1 skill' })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'fixture · 10 skills' })).toBeVisible();
+});
+
+test('back to no repository: a scan still running does not show its result', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/slow');
+  await expect(page.getByRole('status')).toHaveText('Scanning https://github.com/JetBrains/slow…');
+  await page.goBack();
+  await expect(page).toHaveURL('/');
+  await expect(page.getByLabel('Repository')).toHaveValue('');
+  await page.waitForTimeout(2500); // past the slow answer
+  await expect(page.getByRole('navigation')).toBeHidden();
+  await expect(page.getByRole('status')).toBeHidden();
 });
 
 test('nothing is stored in the browser', async ({ page, context }) => {

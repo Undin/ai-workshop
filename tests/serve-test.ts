@@ -1,5 +1,6 @@
 // The web view for the browser tests in tests/web/: `skill-atlas serve`, with GitHub answering from
 // the recordings in tests/helpers.ts and below, never from the network.
+import type { Fetch } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { createAtlasServer, listen } from '../src/server.ts';
 import { EXAMPLE_COMMIT, github, openWith } from './helpers.ts';
@@ -50,5 +51,12 @@ const answers = replay(
   github,
 );
 
-const server = createAtlasServer({ open: openWith(answers) });
+// JetBrains/slow answers as JetBrains/example does, two seconds late: a scan still running.
+const slow: Fetch = async (url, init) => {
+  if (!url.includes('JetBrains/slow')) return answers(url, init);
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  return answers(url.replace('JetBrains/slow', 'JetBrains/example'), init);
+};
+
+const server = createAtlasServer({ open: openWith(slow) });
 console.log(`Skill Atlas: ${(await listen(server, Number(process.env.PORT ?? 3100))).href}`);
