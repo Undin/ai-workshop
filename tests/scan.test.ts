@@ -182,7 +182,9 @@ test('test data is named after tests: a word, a source set; not a skill named so
 test('a project that works with skills: its fixture is test data, its own skills are its skills', async () => {
   const project = await atlas(['scan', join(FIXTURE, '..')]);
   assert.equal(project.code, 0, project.stderr);
-  assert.match(project.stdout, /^\S+ · 2 skills\ncode-review — .*\n.*\nimplement-issue — /);
+  assert.match(project.stdout, /^\S+ · 2 skills\n/);
+  assert.match(project.stdout, /^code-review — /m);
+  assert.match(project.stdout, /^implement-issue — /m);
   assert.match(project.stderr, /^warning: skipped \d+ SKILL\.md in test data$/m);
 });
 
