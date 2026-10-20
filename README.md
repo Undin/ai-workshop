@@ -13,15 +13,27 @@ build-tools-bump-gradle-api — Bumps the Gradle API version that Kotlin Gradle 
 …
 ```
 
-Or in a local web view: a field for a repository link, its skills (with a filter) and their SKILL.md.
+A GitHub organization (or a user): each of its public repositories, one by one, with its number
+of skills.
+
+```console
+$ ./skill-atlas scan https://github.com/Undin
+Undin · 69 repositories
+Undin/2021.3-tests-plugin · 0 skills
+Undin/ai-workshop · 2 skills
+…
+```
+
+Or in a local web view: a field for a repository link, its skills (with a filter) and their SKILL.md;
+for an organization, its repositories as they are scanned, each a link to its own page.
 
 ```console
 $ ./skill-atlas serve
 Skill Atlas: http://127.0.0.1:3000/
 ```
 
-Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests; the web view's run
-in Chromium, after `npx playwright install chromium`.
+Set `GITHUB_TOKEN` for a higher GitHub rate limit: without it, GitHub answers for about 30
+repositories of an organization an hour. `npm test` runs the tests; the web view's run in Chromium, after `npx playwright install chromium`.
 
 `npm run e2e` scans the repositories in [e2e/repos.json](e2e/repos.json), each pinned to a commit,
 and compares the output with [e2e/expected/](e2e/expected/); `UPDATE_EXPECTED=1 npm run e2e`
