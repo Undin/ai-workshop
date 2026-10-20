@@ -179,10 +179,10 @@ test('test data is named after tests: a word, a source set; not a skill named so
   assert.equal(skill('tools/latest/skills/upgrade/SKILL.md')?.title, 'upgrade — Upgrade the dependencies to their latest versions.');
 });
 
-test('a project that works with skills: its fixture is test data, not its skills', async () => {
+test('a project that works with skills: its fixture is test data, its own skills are its skills', async () => {
   const project = await atlas(['scan', join(FIXTURE, '..')]);
   assert.equal(project.code, 0, project.stderr);
-  assert.match(project.stdout, /^\S+ · 0 skills$/);
+  assert.match(project.stdout, /^\S+ · 1 skill\ncode-review — /);
   assert.match(project.stderr, /^warning: skipped \d+ SKILL\.md in test data$/m);
 });
 
