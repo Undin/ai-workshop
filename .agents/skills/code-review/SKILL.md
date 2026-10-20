@@ -188,7 +188,7 @@ With none, approve:
 }
 ```
 
-The `comments` are the normal findings that go inline; leave the list out when there are none. The body is `LGTM` only when every normal finding is inline: automation such as `implement-issue` takes a body starting with `LGTM` as nothing to answer. Otherwise the body is the normal counts per axis, then those findings that aren't inline, under `## Standards` and `## Spec`.
+The `comments` are the normal findings that go inline; leave the list out when there are none. The body starts with a line `LGTM` only when every normal finding is inline: automation such as `implement-issue` takes a body whose first line is `LGTM` as nothing to answer. Otherwise it must not start with `LGTM`: it is the normal counts per axis, then those findings that aren't inline, under `## Standards` and `## Spec`.
 
 **If GitHub rejects the review** with `422`, post it again:
 
