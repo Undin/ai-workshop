@@ -114,9 +114,12 @@ again that each spec case (from step 2, or with `--pr` from the pull request bod
 
 ```bash
 git push -u origin <branch>
-gh pr create --base main --title "<what>" --body "<what and why; the spec cases; Closes #<n>>"
+gh pr create --base main [--draft] --title "<what>" --body "<what and why; the spec cases; Closes #<n>>"
 gh pr checks <pr> --watch
 ```
+
+`--draft` when step 7 has demos to show: the pull request isn't ready for review before their
+screenshots are committed and in its description; step 7 marks it ready.
 
 Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
 
@@ -186,6 +189,8 @@ gh api "repos/$repo/actions/runs/$run/artifacts" \
 
 No `## Demo` section when no demo is shown.
 
+Then, the pull request complete: `gh pr ready <pr>`, so review starts on what will be merged.
+
 ### 8. Review comments
 
 [scripts/wait-for-review.ts](scripts/wait-for-review.ts) finds what reviewers wrote that is still
@@ -246,9 +251,11 @@ For each unanswered one:
     answers each point.
 
 Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch` until green, and
-if a demo or its feature changed, step 7 again for it (the screenshots of the new Demos run committed)
-and its `## Demo` section pointed at them (`gh pr edit <pr> --body`). The pull request already exists:
-don't run `gh pr create` again.
+if a fix can change what a demo shows (its script, or the feature it shows: `src/web/`, or what the
+web view gets from `src/core/`), step 7 again for it: the screenshots of the new green Demos run
+committed, and the `## Demo` section pointed at them and at that run's video (`gh pr edit <pr>
+--body`), so the description never shows what the code no longer does. The pull request already
+exists: don't run `gh pr create` again, nor `gh pr ready`.
 
 Then **wait for more review**: run `wait-for-review.ts <pr>` again, once CI is green. A new comment
 is handled as above, and the wait starts over. After 30 minutes without a new comment (exit 2, or

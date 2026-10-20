@@ -13,12 +13,14 @@ Integration tests for every case in the spec.
    scanning; fix until green
 5. **Demo**, when the change adds a feature of the web view or changes one: `demos/<name>.demo.ts`
    showing exactly it (looked at locally, `npm run demo -- <name>`, its screenshots in `demos/out/<name>/`)
-6. **Pull request**: push, `gh pr create` against `main` with what and why; then wait for CI
+6. **Pull request**: push, `gh pr create` against `main` with what and why, a draft while a demo of
+   step 5 is still to be shown in it; then wait for CI
    (`gh pr checks --watch`), the Demos workflow included: it records every demo on each push to a
    pull request; a red check is fixed with a new commit on the branch, until green. For each demo of
    step 5: commit the screenshots of its Demos run (its `<name>-screenshots` artifact) into
    `demos/<name>/`, a commit of their own, and put them in the pull request's description with a
-   link to its video (its `<name>.webm` artifact)
+   link to its video (its `<name>.webm` artifact); then mark it ready (`gh pr ready`). A later change
+   that can alter what a demo shows: the same again, from its new Demos run
 ## Definition of done
 - All tests pass locally
 - The pull request's CI is green

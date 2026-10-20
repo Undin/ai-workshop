@@ -102,7 +102,8 @@ The demo script, `demos/<name>.demo.ts`, in one commit (`Demo: <the feature> (#<
 
 The screenshots committed, `demos/<name>/`, are the ones of a run on GitHub, the Demos workflow
 ([demos.yml](../../../.github/workflows/demos.yml)): it records every demo on each push to a pull
-request, and from implement-issue, its step 7 commits them, a commit of their own. The local ones,
+request, and from implement-issue, its step 7 commits them, a commit of their own, while the pull
+request is a draft, and again after any change that alters what the demo shows. The local ones,
 `demos/out/<name>/`, were for looking at. Asked for a demo directly, outside implement-issue: the
 same way (implement-issue steps 6 and 7), or, on a branch with no pull request,
 `gh workflow run Demos --ref <branch>`.
