@@ -4,7 +4,8 @@ scan as the [command line](cli.md). Only on this machine (`127.0.0.1`): it reads
 Only for `localhost` and `127.0.0.1` at its port in the `Host` header (no port: 80), else 403:
 another site's page cannot reach it through a name of its own resolved to `127.0.0.1` (DNS rebinding).
 `<port>`: digits, 0 to 65535, 0 for any free one; else a clear message, exit code 1.
-*Nothing is stored*: each scan is a fresh one; going back to no repository cancels a running one. `GITHUB_TOKEN` works as for `scan`.
+*Nothing is stored*: each scan is a fresh one; going back to no repository stops waiting for a
+running one, and its result is not shown (the server still finishes it). `GITHUB_TOKEN` works as for `scan`.
 ## Page
 - A **field** for a repository link (a GitHub URL, or a directory) and a *Scan* button; Enter scans too
 - The address keeps it, `?source=<link>`: a reload or a shared link scans it again
