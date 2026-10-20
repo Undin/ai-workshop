@@ -115,18 +115,23 @@ test('a conversation comment is answered by a later reply that links to it, not 
   ]);
 });
 
-test('a review summary is answered by a later reply that links to it; approvals, drafts and empty ones need none', (t) => {
+test('a review summary is answered by a later reply that links to it; LGTM, drafts and empty ones need none', (t) => {
   const reviews = [
     review(1, 1, 'Two points: …'),
     review(2, 2, 'One more.'),
     review(3, 3, ''),
-    review(4, 4, 'LGTM', 'APPROVED'),
-    review(5, 5, 'Not sent yet', 'PENDING'),
+    review(4, 4, '', 'APPROVED'),
+    review(5, 5, 'LGTM', 'APPROVED'),
+    // code-review's LGTM, as a comment when it can't approve its own pull request
+    review(6, 6, 'LGTM\n\nSpec axis skipped: no issue.\n\n---\nProduced by Air Automations.'),
+    review(7, 7, 'Not sent yet', 'PENDING'),
+    review(8, 8, 'Approved, but rename it.', 'APPROVED'),
+    review(9, 9, 'LGTM, but rename it.'),
   ];
-  const conversation = [comment(6, 6, `${PR}#pullrequestreview-2: done.${REPLY}`, 'author')];
-  assert.deepEqual(found(t, { reviews: [[reviews]], conversation: [[conversation]] }), [
-    { kind: 'review', id: 1, url: `${PR}#pullrequestreview-1`, author: 'reviewer', body: 'Two points: …' },
-  ]);
+  const conversation = [comment(10, 10, `${PR}#pullrequestreview-2: done.${REPLY}`, 'author')];
+  const listed = found(t, { reviews: [[reviews]], conversation: [[conversation]] });
+  assert.deepEqual(listed[0], { kind: 'review', id: 1, url: `${PR}#pullrequestreview-1`, author: 'reviewer', body: 'Two points: …' });
+  assert.deepEqual(listed.map((item: { id: number }) => item.id), [1, 8, 9]);
 });
 
 test('status comments are neither review nor a reply, even when they link to a review', (t) => {
@@ -153,6 +158,11 @@ test('every page counts', (t) => {
     inline: [[[inline(3, 3, 'Rename this.')], [inline(4, 4, `Renamed.${REPLY}`, 3)]]],
   });
   assert.deepEqual(listed.map((item: { id: number }) => item.id), [1, 2]);
+});
+
+test('a long answer is printed whole, through a pipe', (t) => {
+  const long = Array.from({ length: 50 }, (_, i) => inline(i + 1, i, `${i} `.repeat(1000)));
+  assert.equal(found(t, { inline: [[long]] }).length, 50);
 });
 
 test('waits: asks again every interval, until there is review to answer', (t) => {

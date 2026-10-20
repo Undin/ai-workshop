@@ -147,8 +147,9 @@ How it tells what is unanswered: every reply this skill posts ends with the mark
 `<!-- code-review:started -->`) are neither review nor reply: skipped. Who wrote a comment
 doesn't tell a review from a reply: the PR author reviews too, and on Air the reviewer and this
 session can be the same bot. So a comment with the marker is a reply, and every other one is
-review to answer. Approvals (`LGTM`), pending reviews and review summaries with an empty body
-(reviews that only carry inline comments) have nothing to answer.
+review to answer. Review summaries whose first line is `LGTM` (code-review's approval, or its
+comment when it can't approve), pending ones and ones with an empty body (approvals, reviews that
+only carry inline comments) have nothing to answer.
 
 - **Inline comments**: a thread (root comment plus the ones whose `in_reply_to_id` is its `id`)
   is answered when a reply with the marker comes after the last comment without one.

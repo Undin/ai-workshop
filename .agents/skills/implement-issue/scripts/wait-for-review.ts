@@ -38,6 +38,7 @@ async function list<T>(path: string): Promise<T[]> {
 
 const isReply = (body: string | null) => !!body?.includes(REPLY);
 const isStatus = (body: string | null) => STATUS.some((marker) => body?.includes(marker));
+const isLgtm = (body: string) => /^LGTM[.!]*$/i.test(body.trim().split('\n')[0].trim());
 const author = (user: User) => user?.login ?? 'ghost';
 const said = (comment: Comment): Said => ({ author: author(comment.user), url: comment.html_url, body: comment.body });
 
@@ -73,8 +74,9 @@ async function unanswered(pr: number): Promise<Unanswered[]> {
     found.push({ at: comment.created_at, item: { kind: 'conversation', id: comment.id, ...said(comment) } });
   }
   for (const review of reviews) {
-    // Approvals (`LGTM`), drafts and reviews that only carry inline comments have nothing to answer.
-    if (review.state === 'APPROVED' || review.state === 'PENDING' || !review.body?.trim()) continue;
+    // `LGTM` (code-review's approval, or its comment when it can't approve), drafts and reviews that
+    // only carry inline comments have nothing to answer.
+    if (review.state === 'PENDING' || !review.body?.trim() || isLgtm(review.body)) continue;
     if (isReply(review.body) || isStatus(review.body) || linked(review.html_url, review.submitted_at)) continue;
     const item = { kind: 'review', id: review.id, url: review.html_url, author: author(review.user), body: review.body } as const;
     found.push({ at: review.submitted_at, item });
@@ -107,32 +109,37 @@ function parse(args: string[]) {
   return { pr, quiet, interval };
 }
 
-let options: ReturnType<typeof parse>;
-try {
-  options = parse(process.argv.slice(2));
-} catch (error) {
-  console.error(`${(error as Error).message}\n${USAGE}`);
-  process.exit(1);
+/** What the script exits with, having printed what it found. */
+async function main(args: string[]): Promise<number> {
+  let options: ReturnType<typeof parse>;
+  try {
+    options = parse(args);
+  } catch (error) {
+    console.error(`${(error as Error).message}\n${USAGE}`);
+    return 1;
+  }
+  const { pr, quiet, interval } = options;
+  const deadline = Date.now() + quiet * 60_000;
+  try {
+    // Once now, then every interval, the last time when the quiet period ends.
+    for (;;) {
+      const found = await unanswered(pr);
+      if (found.length) {
+        console.log(JSON.stringify(found, null, 2));
+        return 0;
+      }
+      const left = deadline - Date.now();
+      if (left <= 0) break;
+      await sleep(Math.min(interval * 1000, left));
+    }
+  } catch (error) {
+    console.error((error as Error).message);
+    return 1;
+  }
+  console.log('[]');
+  console.error(`No unanswered review on #${pr} in ${quiet} minutes.`);
+  return 2;
 }
 
-const { pr, quiet, interval } = options;
-const deadline = Date.now() + quiet * 60_000;
-try {
-  // Once now, then every interval, the last time when the quiet period ends.
-  for (;;) {
-    const found = await unanswered(pr);
-    if (found.length) {
-      console.log(JSON.stringify(found, null, 2));
-      process.exit(0);
-    }
-    const left = deadline - Date.now();
-    if (left <= 0) break;
-    await sleep(Math.min(interval * 1000, left));
-  }
-} catch (error) {
-  console.error((error as Error).message);
-  process.exit(1);
-}
-console.log('[]');
-console.error(`No unanswered review on #${pr} in ${quiet} minutes.`);
-process.exit(2);
+// Not process.exit(): it would cut what is still being written to a pipe.
+process.exitCode = await main(process.argv.slice(2));
