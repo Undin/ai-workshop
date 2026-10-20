@@ -12,7 +12,8 @@ import { openGitHub, parseGitHubUrl } from '../src/core/github.ts';
 import { parseSkill } from '../src/core/parse.ts';
 import { replay } from '../src/core/replay.ts';
 import { scan } from '../src/core/scan.ts';
-import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
+import { openSource } from '../src/open.ts';
+import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE, github } from './helpers.ts';
 
 const fixture = await atlas(['scan', FIXTURE]);
 const example = await atlas(['scan', 'github.com/JetBrains/example']);
@@ -344,4 +345,10 @@ test('rate limit → a message that asks for GITHUB_TOKEN', async () => {
   await assert.rejects(openGitHub('https://github.com/JetBrains/MPS', { fetch: limited }), {
     message: 'GitHub rate limit reached; set GITHUB_TOKEN',
   });
+});
+
+test('a skill carries its SKILL.md text, as read', async () => {
+  const result = await scan(await openSource(FIXTURE, { fetch: github }));
+  const commits = result.skills.find((skill) => skill.path === '.claude/skills/commits/SKILL.md');
+  assert.equal(commits?.text, readFileSync(join(FIXTURE, '.claude/skills/commits/SKILL.md'), 'utf8'));
 });
