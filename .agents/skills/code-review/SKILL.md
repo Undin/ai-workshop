@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Pass `--comment [<pr>]` (e.g. from a JetBrains Air cloud task) to announce the start in a pull request comment, then post the critical, major and normal findings as inline review comments on the GitHub pull request, approving it with LGTM when none is critical or major. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Pass `--comment [<pr>]` (e.g. from a JetBrains Air cloud task) to announce the start in a pull request comment, then post the critical, major and normal findings as inline review comments on the GitHub pull request, approving it with LGTM when none is critical or major; once it has approved a pull request, it doesn't review it again. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
@@ -111,7 +111,7 @@ See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole
 
 ## On CI (`--comment`)
 
-`--comment [<pr>]` is for unattended runs, such as a JetBrains Air cloud task: the task prompt passes the flag, nothing is detected from the environment. It announces the start in a comment on the GitHub pull request, then posts one review to it:
+`--comment [<pr>]` is for unattended runs, such as a JetBrains Air cloud task: the task prompt passes the flag, nothing is detected from the environment. Unless it has approved the GitHub pull request already, it announces the start in a comment on it, then posts one review to it:
 
 - **Critical, major and normal findings are posted**, each as an inline comment on the code it's about. Minor ones stay in the printed report only.
 - **No critical or major findings**: the review approves the pull request, with the normal findings (if any) as its comments.
@@ -121,9 +121,19 @@ See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole
 **Never ask.** Nobody is there to answer:
 
 - The pull request is `<pr>` if given, otherwise the one for the current branch. Read it with `gh pr view [<pr>] --json number,url,headRefOid,baseRefName`. If there's none, stop with an error; don't silently fall back to a text report.
+- If this skill has approved the pull request already, stop (see _Once approved, stop_).
 - The fixed point is the pull request's base: `git fetch origin <baseRefName>`, then `origin/<baseRefName>`.
 - `headRefOid` must equal `git rev-parse HEAD`; otherwise the line numbers would point at other code, so stop with an error.
 - If no spec is found in step 2, skip the Spec axis and say so in the review body.
+
+**Once approved, stop.** Every approval this skill posts carries the marker `<!-- code-review:approved -->` on a line of its own (see _Post one review_). Right after reading the pull request, look for one:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/<number>/reviews --paginate \
+  --jq '.[] | select(.state != "DISMISSED" and (.body | test("(^|\\n)<!-- code-review:approved -->\\s*(\\n|$)"))) | .html_url'
+```
+
+If it prints a URL, the pull request is approved already: post nothing (no start comment, no review), print `Already approved: <the URL>` in the task output and stop, without an error. The marker counts, not the review's state, because when the token's user can't approve its own pull request the approval is a `COMMENT` review (see _If GitHub rejects the review_); approvals by anyone else don't count. Look for the marker on any line, not only the last one: the poster may append to the body (Air Automations adds a `Produced by Air Automations` footer). An approval that was dismissed doesn't count either: the next run reviews again.
 
 **Announce the start.** Once the pull request is read and `headRefOid` checked, before step 2, post a conversation comment saying the review has started, and keep its `id`:
 
@@ -176,7 +186,7 @@ With none, approve:
 {
   "commit_id": "<headRefOid>",
   "event": "APPROVE",
-  "body": "LGTM",
+  "body": "LGTM\n\n<!-- code-review:approved -->",
   "comments": [
     {
       "path": "src/core/scan.ts",
@@ -188,12 +198,12 @@ With none, approve:
 }
 ```
 
-The `comments` are the normal findings that go inline; leave the list out when there are none. The body starts with a line `LGTM` only when every normal finding is inline: automation such as `implement-issue` takes a body whose first line is `LGTM` as nothing to answer. Otherwise it must not start with `LGTM`: it is the normal counts per axis, then those findings that aren't inline, under `## Standards` and `## Spec`.
+The `comments` are the normal findings that go inline; leave the list out when there are none. The body starts with a line `LGTM` only when every normal finding is inline: automation such as `implement-issue` takes a body whose first line is `LGTM` as nothing to answer. Otherwise it must not start with `LGTM`: it is the normal counts per axis, then those findings that aren't inline, under `## Standards` and `## Spec`. Either way, the body ends with the marker `<!-- code-review:approved -->` on a line of its own, so no later run reviews the pull request again (see _Once approved, stop_); a review with critical or major findings never carries it.
 
 **If GitHub rejects the review** with `422`, post it again:
 
 - a line outside the diff: every posted finding in the body and no `comments` (so an approval's body is the normal counts and findings, not `LGTM`);
-- the token's user can't approve its own pull request: `"event": "COMMENT"` with the same body and `comments`.
+- the token's user can't approve its own pull request: `"event": "COMMENT"` with the same body (marker included) and `comments`.
 
 Then edit the start comment to link to the review (see _Announce the start_). Finally print the report from step 5 and the review's URL (`html_url` in the response) in the task output.
 
