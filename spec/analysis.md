@@ -38,6 +38,14 @@ The front matter, else the directory; a root `SKILL.md`: the repository
 - Not the skill's own directory: `.claude/skills/run-tests` is a skill
 - Counted from the scanned root: `scan ./fixture` still finds the fixture's skills
 - Skipped, with one warning: `skipped N SKILL.md in test data`
+### Last update
+When the skill last changed: asked for **one skill at a time**, not in the scan (on GitHub, a request each)
+- On GitHub: the date of the *last commit*, up to the scanned one, that changed the skill's directory;
+  a `SKILL.md` at the root: the repository's
+- In a local directory: in a git checkout, the last commit that changed its directory; not committed,
+  or changed since: the *latest modification* of its files
+- An ISO date in UTC: `2026-10-14T12:53:27.000Z`
+- Not a skill's link → `Not a skill link: <link>`; GitHub answers no more → its clear message
 ## Organization
 `https://github.com/<owner>`, with or without the scheme or a trailing slash: an organization, or a user the same way
 - Its **public** repositories, all of them (forks and archived ones too), in GitHub's order: by name

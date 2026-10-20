@@ -174,6 +174,86 @@ test('on GitHub: the link pins the scanned commit', async ({ page }) => {
   );
 });
 
+const updated = (page: Page) => article(page).locator('#skill-updated');
+
+/** The requests the page makes for the last updates, each one's skill link. */
+function updatesAsked(page: Page): string[] {
+  const asked: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === '/api/updated') asked.push(url.searchParams.get('link')!.split('/').at(-2)!);
+  });
+  return asked;
+}
+
+test('the last update, in the top right corner of the chosen skill: the date in UTC, the time on hover', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/dated');
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('early');
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+  const time = updated(page).locator('time');
+  await expect(time).toHaveAttribute('datetime', '2026-03-14T09:26:53.000Z');
+  await expect(time).toHaveAttribute('title', '2026-03-14 09:26 UTC');
+  // On the heading's line, right of it, at the right edge of the SKILL.md (the front matter's table spans it).
+  const box = (await updated(page).boundingBox())!;
+  const heading = (await article(page).getByRole('heading', { level: 2 }).boundingBox())!;
+  const table = (await article(page).getByRole('table', { name: 'Front matter' }).boundingBox())!;
+  expect(box.x).toBeGreaterThan(heading.x + heading.width);
+  expect(box.y).toBeLessThan(heading.y + heading.height);
+  expect(box.y + box.height).toBeGreaterThan(heading.y);
+  expect(Math.abs(box.x + box.width - (table.x + table.width))).toBeLessThan(1);
+  // Another skill: its own.
+  await skills(page).filter({ hasText: /^late/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2026-10-01', { timeout: SLOW_ANSWER_MS * 2 });
+  await expect(updated(page).locator('time')).toHaveAttribute('title', '2026-10-01 23:59 UTC');
+});
+
+test('the last update in a directory: a date too', async ({ page }) => {
+  await scan(page, FIXTURE);
+  await expect(updated(page)).toHaveText(/^Updated \d{4}-\d{2}-\d{2}$/);
+});
+
+test('`Updated …` while it is asked; an answer for a skill no longer chosen is not shown', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/dated');
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+  await skills(page).filter({ hasText: /^late/ }).click();
+  await expect(updated(page)).toHaveText('Updated …');
+  await skills(page).filter({ hasText: /^early/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+  await page.waitForTimeout(SLOW_ANSWER_MS + 500); // past late's answer
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('early');
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+});
+
+test('the last update is asked once per scan for each skill chosen; a new scan asks again', async ({ page }) => {
+  const asked = updatesAsked(page);
+  await scan(page, 'https://github.com/JetBrains/dated');
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+  await skills(page).filter({ hasText: /^late/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2026-10-01', { timeout: SLOW_ANSWER_MS * 2 });
+  await skills(page).filter({ hasText: /^early/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+  await skills(page).filter({ hasText: /^late/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2026-10-01');
+  expect(asked).toEqual(['early', 'late']);
+  await page.getByLabel('Repository').press('Enter');
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+  await expect.poll(() => asked).toEqual(['early', 'late', 'early']);
+});
+
+test('the last update cannot be known → `Last update unknown`, why on hover; asked again after it', async ({ page }) => {
+  const asked = updatesAsked(page);
+  await scan(page, 'https://github.com/JetBrains/dated');
+  await skills(page).filter({ hasText: /^limited/ }).click();
+  await expect(updated(page)).toHaveText('Last update unknown');
+  await expect(updated(page)).toHaveAttribute('title', 'GitHub rate limit reached; try again in a minute');
+  await skills(page).filter({ hasText: /^early/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2026-03-14');
+  await expect(updated(page)).not.toHaveAttribute('title');
+  await skills(page).filter({ hasText: /^limited/ }).click();
+  await expect(updated(page)).toHaveText('Last update unknown');
+  expect(asked).toEqual(['early', 'limited', 'limited']);
+});
+
 test('the SKILL.md is untrusted: sanitized, its scripts never run, remote images not loaded', async ({ page }) => {
   // The CSP's violation for the image proves it was not loaded; Chromium reports even a request
   // the CSP blocks, so watching the requests would not. A script in the page, as text: the tests

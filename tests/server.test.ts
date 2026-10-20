@@ -4,17 +4,17 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync, type SpawnOptions } from 'node:child_process';
 import { once } from 'node:events';
 import { request } from 'node:http';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { after, test, type TestContext } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
 import { createBrowserBackend } from '../src/browser.ts';
 import { run } from '../src/commands.ts';
 import type { Fetch } from '../src/core/github.ts';
 import { createAtlasServer, isServedHost, listen, type ErrorAnswer, type OrganizationLine, type ScanAnswer } from '../src/server.ts';
-import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE, github, openWith } from './helpers.ts';
+import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE, github, openWith, updatedWith } from './helpers.ts';
 
 const PRELOAD = fileURLToPath(new URL('github-preload.ts', import.meta.url));
 
@@ -106,6 +106,124 @@ test('on GitHub: the link pins the scanned commit', async () => {
   );
 });
 
+const updatedOf = (link: string) => get(`/api/updated?link=${encodeURIComponent(link)}`);
+const blob = (path: string) => `https://github.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/${path}`;
+
+test('the last update on GitHub: the last commit, up to the scanned one, that changed the skill directory', async () => {
+  const [skill] = (await scanned('https://github.com/JetBrains/example')).skills;
+  const { response, body } = await updatedOf(skill.link);
+  assert.equal(response.status, 200);
+  assert.deepEqual(body, { updated: '2026-10-14T12:53:27.000Z' });
+});
+
+test('the last update on GitHub of a SKILL.md at the root: the repository\'s', async () => {
+  assert.deepEqual((await updatedOf(blob('SKILL.md'))).body, { updated: '2026-10-19T08:05:00.000Z' });
+});
+
+test('the last update: not a skill link, no commit, GitHub answers no more → 400 and a clear message', async () => {
+  const links = [
+    '',
+    'https://github.com/JetBrains/example',
+    `https://gitlab.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/SKILL.md`,
+    join(FIXTURE, 'SKILL.md'), // a path, not a link
+    pathToFileURL(join(FIXTURE, 'README.md')).href,
+    pathToFileURL(join(FIXTURE, '.claude/skills/no-such/SKILL.md')).href,
+  ];
+  for (const link of links) {
+    const { response, body } = await updatedOf(link);
+    assert.equal(response.status, 400, link);
+    assert.deepEqual(body, { error: `Not a skill link: ${link}` });
+  }
+  assert.deepEqual((await updatedOf(blob('.claude/skills/gone/SKILL.md'))).body, {
+    error: `No commit changed .claude/skills/gone in https://github.com/JetBrains/example up to ${EXAMPLE_COMMIT}`,
+  });
+  const limited = await updatedOf(`https://github.com/Limited/first/blob/${EXAMPLE_COMMIT}/skills/x/SKILL.md`);
+  assert.equal(limited.response.status, 400);
+  assert.deepEqual(limited.body, { error: 'GitHub rate limit reached; try again in a minute' });
+});
+
+/** A directory with these files, removed after the test. */
+function directoryWith(t: TestContext, files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  write(root, files);
+  return root;
+}
+
+function write(root: string, files: Record<string, string>) {
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+}
+
+/** A git checkout: each commit's files, committed at its date. */
+function checkout(t: TestContext, commits: { date: string; files: Record<string, string> }[]): string {
+  const root = directoryWith(t, {});
+  const git = (args: string[], date?: string) => {
+    const env = { ...process.env, ...(date && { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date }) };
+    const done = spawnSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args], { cwd: root, env, encoding: 'utf8' });
+    assert.equal(done.status, 0, done.stderr);
+  };
+  git(['init', '-q']);
+  for (const { date, files } of commits) {
+    write(root, files);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', date], date);
+  }
+  return root;
+}
+
+const skillMd = (name: string) => `---\nname: ${name}\ndescription: The ${name} skill.\n---\n# ${name}\n`;
+
+/** Each skill's last update, by name, through the links of the directory's scan. */
+async function lastUpdates(root: string): Promise<Record<string, unknown>> {
+  const answer = await scanned(root);
+  const updates = await Promise.all(answer.skills.map(async (skill) => [skill.name, (await updatedOf(skill.link)).body]));
+  return Object.fromEntries(updates);
+}
+
+/** Sets the files' modification time. */
+function touch(root: string, paths: string[], date: string) {
+  for (const path of paths) utimesSync(join(root, path), new Date(date), new Date(date));
+}
+
+test('the last update in a git checkout: the last commit that changed the skill directory; the repository\'s for a root SKILL.md', async (t) => {
+  const root = checkout(t, [
+    { date: '2026-01-01T10:00:00Z', files: { 'SKILL.md': skillMd('root'), '.claude/skills/a/SKILL.md': skillMd('a') } },
+    // A file of the skill's own: an update of the skill.
+    { date: '2026-02-01T10:00:00Z', files: { '.claude/skills/a/scripts/run.sh': 'echo a\n' } },
+    { date: '2026-03-01T10:00:00+02:00', files: { '.claude/skills/b/SKILL.md': skillMd('b') } },
+  ]);
+  assert.deepEqual(await lastUpdates(root), {
+    a: { updated: '2026-02-01T10:00:00.000Z' },
+    b: { updated: '2026-03-01T08:00:00.000Z' },
+    root: { updated: '2026-03-01T08:00:00.000Z' },
+  });
+});
+
+test('the last update in a git checkout, changed since or not committed: the latest modification of its files', async (t) => {
+  const root = checkout(t, [
+    { date: '2026-01-01T10:00:00Z', files: { '.claude/skills/a/SKILL.md': skillMd('a'), '.claude/skills/a/scripts/run.sh': 'echo a\n', '.claude/skills/b/SKILL.md': skillMd('b') } },
+  ]);
+  write(root, { '.claude/skills/a/scripts/run.sh': 'echo changed\n', '.claude/skills/c/SKILL.md': skillMd('c') });
+  touch(root, ['.claude/skills/a/SKILL.md'], '2026-04-04T04:04:04Z');
+  touch(root, ['.claude/skills/a/scripts/run.sh'], '2026-05-05T05:05:05Z');
+  touch(root, ['.claude/skills/c/SKILL.md'], '2026-06-06T06:06:06Z');
+  assert.deepEqual(await lastUpdates(root), {
+    a: { updated: '2026-05-05T05:05:05.000Z' },
+    b: { updated: '2026-01-01T10:00:00.000Z' },
+    c: { updated: '2026-06-06T06:06:06.000Z' },
+  });
+});
+
+test('the last update in a directory not in a git checkout: the latest modification of its files', async (t) => {
+  const root = directoryWith(t, { '.claude/skills/a/SKILL.md': skillMd('a'), '.claude/skills/a/references/notes.md': '# Notes\n' });
+  touch(root, ['.claude/skills/a/SKILL.md'], '2026-07-07T07:07:07Z');
+  touch(root, ['.claude/skills/a/references/notes.md'], '2026-03-03T03:03:03Z');
+  assert.deepEqual(await lastUpdates(root), { a: { updated: '2026-07-07T07:07:07.000Z' } });
+});
+
 test('an empty field → 400 and a hint; an unreachable repository, not a GitHub URL → 400 and the CLI message', async () => {
   for (const source of ['', '   ']) {
     const { response, body } = await scanOf(source);
@@ -180,7 +298,7 @@ test('an organization: the page gone, the server stops scanning it', async (t) =
     if (url.endsWith('/commits/main')) await new Promise((resolve) => setTimeout(resolve, 200));
     return github(url, init);
   };
-  const slow = createAtlasServer({ open: openWith(late) });
+  const slow = createAtlasServer({ open: openWith(late), updated: updatedWith(late) });
   const address = await listen(slow, 0);
   t.after(() => slow.close());
   const leaving = new AbortController();
@@ -219,6 +337,8 @@ test('anything else → 404; not GET → 405; the scan, not HEAD either', async 
   assert.equal((await get('/api/scan', { method: 'POST' })).response.status, 405);
   assert.equal((await get('/', { method: 'HEAD' })).response.status, 200);
   assert.equal((await get(`/api/scan?source=${encodeURIComponent(FIXTURE)}`, { method: 'HEAD' })).response.status, 405);
+  assert.equal((await get(`/api/updated?link=${encodeURIComponent(blob('.claude/skills/commits/SKILL.md'))}`, { method: 'HEAD' })).response.status, 405);
+  assert.equal((await get('/api/updated', { method: 'POST' })).response.status, 405);
 });
 
 /** A request with this Host header; fetch() always sends the real one. */

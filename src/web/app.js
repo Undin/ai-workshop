@@ -1,7 +1,7 @@
 // The web view's page: the repository field, its skills, and the chosen skill's SKILL.md, from
 // GET /api/scan; for an organization, its repositories as they are scanned, each linked to its
-// page, shown from that scan while it goes on. A SKILL.md is untrusted: its Markdown is sanitized
-// before it is shown.
+// page, shown from that scan while it goes on; when the chosen skill was last updated, from
+// GET /api/updated. A SKILL.md is untrusted: its Markdown is sanitized before it is shown.
 import { marked } from '/vendor/marked.js';
 import DOMPurify from '/vendor/purify.js';
 
@@ -33,6 +33,8 @@ let listed = [];
 let organizationScan;
 /** Whether the page shows the organization's scan: its page, or one of its repositories'. */
 let fromOrganization = false;
+/** The skill whose SKILL.md is shown. */
+let chosen;
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -280,8 +282,10 @@ function choose(skill, button) {
   for (const other of document.querySelectorAll('#skills button')) other.removeAttribute('aria-current');
   button.setAttribute('aria-current', 'true');
 
+  chosen = skill;
   $('#skill').hidden = false;
   $('#skill-name').textContent = skill.name;
+  showUpdated(skill);
   // A web page cannot open a file:// link: a local skill shows its path.
   if (skill.link.startsWith('file:')) {
     $('#skill-location').replaceChildren(element('code', decodeURIComponent(new URL(skill.link).pathname)));
@@ -302,6 +306,36 @@ function choose(skill, button) {
   });
   $('#front-matter tbody').replaceChildren(...rows);
   $('#skill-body').innerHTML = DOMPurify.sanitize(marked.parse(skill.body, { async: false }));
+}
+
+/**
+ * When the skill was last updated, `Updated <date>` in its top right corner, the time on hover;
+ * `Updated …` until it is known. Asked once per scan, again after a failure.
+ */
+function showUpdated(skill) {
+  const updated = $('#skill-updated');
+  updated.textContent = 'Updated …';
+  updated.removeAttribute('title');
+  skill.updated ??= fetch(`/api/updated?link=${encodeURIComponent(skill.link)}`).then(async (response) => {
+    const answer = await response.json();
+    if (!response.ok) throw new Error(answer.error ?? `The server answered ${response.status}`);
+    return answer.updated;
+  });
+  skill.updated.then(
+    (date) => {
+      if (chosen !== skill) return;
+      const time = element('time', date.slice(0, 10));
+      time.dateTime = date;
+      time.title = `${date.slice(0, 10)} ${date.slice(11, 16)} UTC`;
+      updated.replaceChildren('Updated ', time);
+    },
+    (error) => {
+      skill.updated = undefined;
+      if (chosen !== skill) return;
+      updated.textContent = 'Last update unknown';
+      updated.title = error.message;
+    },
+  );
 }
 
 /** The text, each match of `wanted` in a `<mark>`. */

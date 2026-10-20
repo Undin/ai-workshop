@@ -17,6 +17,8 @@ build-tools-bump-gradle-api — Bumps the Gradle API…
 ```
 - Sorted by **name**; the description's *first sentence*
 - `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
+- Not the skills' last update: a GitHub request each ([analysis.md](analysis.md), Last update); the
+  [web view](web.md) shows the chosen skill's
 - Warnings go to *stderr*: malformed front matter, copies with different content, links not followed, skipped test data
 ### An organization
 ```

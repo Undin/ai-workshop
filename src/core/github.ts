@@ -30,6 +30,30 @@ export function parseGitHubOwnerUrl(input: string): { owner: string } | undefine
   return match ? { owner: match[1] } : undefined;
 }
 
+/** `https://github.com/owner/repo/blob/<commit>/<path>`: a skill's link, as `skillLink` makes it. */
+export function parseGitHubBlobUrl(input: string): { owner: string; repo: string; commit: string; path: string } | undefined {
+  const match = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/blob\/([0-9a-f]{40})\/([^?#]+)$/.exec(input.trim());
+  if (!match) return undefined;
+  return { owner: match[1], repo: match[2], commit: match[3], path: match[4].split('/').map(decodeURIComponent).join('/') };
+}
+
+/**
+ * When the skill at the link was last updated: the date of the last commit, up to the scanned one,
+ * that changed its directory; for a SKILL.md at the root, the repository's.
+ */
+export async function lastUpdateOnGitHub(link: string, options: GitHubOptions): Promise<string> {
+  const name = parseGitHubBlobUrl(link);
+  if (!name) throw new AtlasError(`Not a skill link: ${link}`);
+  const id = `${name.owner}/${name.repo}`;
+  const directory = name.path.split('/').slice(0, -1).join('/');
+  const commits = await client(options).json<{ commit: { committer: { date: string } } }[]>(
+    `${API}/repos/${id}/commits?sha=${name.commit}${directory && `&path=${encodePath(directory)}`}&per_page=1`,
+    `Not found in https://github.com/${id}: ${name.commit}`,
+  );
+  if (!commits.length) throw new AtlasError(`No commit changed ${directory} in https://github.com/${id} up to ${name.commit}`);
+  return new Date(commits[0].commit.committer.date).toISOString();
+}
+
 /** Resolves the ref, else the default branch, to a commit and lists the files that may be skills. */
 export async function openGitHub(input: string, options: GitHubOptions): Promise<Source> {
   const name = parseGitHubUrl(input);

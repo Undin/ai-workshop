@@ -1,6 +1,8 @@
-import { readdir, readFile, readlink } from 'node:fs/promises';
-import { basename, join, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { execFile } from 'node:child_process';
+import { readdir, readFile, readlink, stat } from 'node:fs/promises';
+import { basename, dirname, join, resolve, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import { AtlasError } from './core/errors.ts';
 import type { Source } from './core/scan.ts';
 
@@ -26,6 +28,27 @@ export async function openDirectory(input: string): Promise<Source> {
     read: (path) => readFile(join(root, path)).then((bytes) => new Uint8Array(bytes), () => undefined),
     readLink: (path) => readlink(join(root, path)).then((target) => target.split(sep).join('/'), () => undefined),
   };
+}
+
+/**
+ * When the skill at the file:// link was last updated: in a git checkout, the date of the last
+ * commit that changed its directory; not committed, or changed since, the latest modification of
+ * its files.
+ */
+export async function lastUpdateInDirectory(link: string): Promise<string> {
+  const file = link.startsWith('file:') ? fileURLToPath(link) : '';
+  if (basename(file) !== 'SKILL.md' || !(await stat(file).then((entry) => entry.isFile(), () => false))) {
+    throw new AtlasError(`Not a skill link: ${link}`);
+  }
+  const directory = dirname(file);
+  const git = (...args: string[]) =>
+    promisify(execFile)('git', ['-C', directory, ...args, '--', '.']).then(({ stdout }) => stdout.trim(), () => '');
+  const [committed, changed] = await Promise.all([git('log', '-1', '--format=%cI'), git('status', '--porcelain')]);
+  if (committed && !changed) return new Date(committed).toISOString();
+  const paths: string[] = [];
+  await walk(directory, '', paths, []);
+  const times = await Promise.all(paths.map((path) => stat(join(directory, path)).then((entry) => entry.mtimeMs)));
+  return new Date(Math.max(...times)).toISOString();
 }
 
 /** Every regular file and symbolic link under the directory, as paths relative to the root. */

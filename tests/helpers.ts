@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { run } from '../src/commands.ts';
 import type { Fetch } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
-import { openSource } from '../src/open.ts';
+import { lastUpdate, openSource } from '../src/open.ts';
 import { createAtlasServer } from '../src/server.ts';
 
 export const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
@@ -29,6 +29,17 @@ export function inTree(id: string, files: Record<string, string>): Recording {
   };
 }
 
+/** The date of the last commit that changed `directory` up to EXAMPLE_COMMIT, as GitHub answers it; the repository's without one. */
+export function lastCommit(id: string, directory: string, date: string): Recording {
+  const path = directory && `&path=${directory}`;
+  return {
+    [`https://api.github.com/repos/${id}/commits?sha=${EXAMPLE_COMMIT}${path}&per_page=1`]: {
+      status: 200,
+      body: [{ sha: 'last', commit: { committer: { date } } }],
+    },
+  };
+}
+
 /** What GitHub answers for an owner, an organization or a user, with these public repositories. */
 export function owner(login: string, repositories: string[]): Recording {
   return {
@@ -51,6 +62,11 @@ export const EXAMPLE: Recording = {
     body: { total_count: 1, items: [{ path: '.claude/skills/commits/SKILL.md' }] },
   },
   [`https://raw.githubusercontent.com/JetBrains/example/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`]: { status: 200, body: COMMITS },
+  // Its last updates: the skill's directory, the repository's for a SKILL.md at the root; a
+  // directory no commit changed.
+  ...lastCommit('JetBrains/example', '.claude/skills/commits', '2026-10-14T12:53:27Z'),
+  ...lastCommit('JetBrains/example', '', '2026-10-19T08:05:00Z'),
+  [`https://api.github.com/repos/JetBrains/example/commits?sha=${EXAMPLE_COMMIT}&path=.claude/skills/gone&per_page=1`]: { status: 200, body: [] },
 
   // The JetBrains organization: JetBrains/example, one with a warning, an empty one, one without skills.
   ...owner('JetBrains', ['example', 'malformed', 'new', 'none']),
@@ -65,6 +81,10 @@ export const EXAMPLE: Recording = {
   // Limited: GitHub's rate limit is reached at its second repository; the third is never asked for.
   ...owner('Limited', ['first', 'second', 'third']),
   ...inTree('Limited/first', {}),
+  [`https://api.github.com/repos/Limited/first/commits?sha=${EXAMPLE_COMMIT}&path=skills/x&per_page=1`]: {
+    status: 403,
+    body: { message: 'API rate limit exceeded for user ID 1. (But here is the good news: ...)' },
+  },
   'https://api.github.com/repos/Limited/second/commits/main': {
     status: 403,
     body: { message: 'API rate limit exceeded for user ID 1. (But here is the good news: ...)' },
@@ -83,6 +103,11 @@ export function openWith(fetch: Fetch) {
   return (input: string) => openSource(input, { fetch, token: 'test' });
 }
 
+/** When a skill was last updated, asked the way the CLI's web view does, with GitHub answering from `fetch`. */
+export function updatedWith(fetch: Fetch) {
+  return (link: string) => lastUpdate(link, { fetch, token: 'test' });
+}
+
 /** `skill-atlas <args>`, as the CLI runs it, with GitHub answering from EXAMPLE. */
 export async function atlas(args: string[]) {
   const stdout: string[] = [];
@@ -97,5 +122,5 @@ export async function atlas(args: string[]) {
 
 /** The web view, as `skill-atlas serve` runs it, with GitHub answering from EXAMPLE. */
 export function atlasServer() {
-  return createAtlasServer({ open: openWith(github) });
+  return createAtlasServer({ open: openWith(github), updated: updatedWith(github) });
 }

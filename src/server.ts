@@ -1,5 +1,5 @@
-// The local web view: the page in src/web, and the scan as JSON. The same core as the CLI;
-// nothing is stored, each scan is a fresh one.
+// The local web view: the page in src/web, the scan as JSON, and when a skill was last updated.
+// The same core as the CLI; nothing is stored, each scan is a fresh one.
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
@@ -10,10 +10,14 @@ import { scan, scanOrganization, type OrganizationSource, type ScanResult, type 
 export type ServerOptions = {
   /** Opens what the user asked to scan: a repository, or an organization's repositories. */
   open(input: string): Promise<Source | OrganizationSource>;
+  /** When the skill at the link was last updated, as an ISO date. */
+  updated(link: string): Promise<string>;
 };
 
 /** What GET /api/scan answers: the scan, each skill with its link and first sentence. */
 export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link: string; summary: string })[] };
+/** What GET /api/updated answers: when the skill was last updated. */
+export type UpdatedAnswer = { updated: string };
 /** What a request that cannot be answered gets instead. */
 export type ErrorAnswer = { error: string };
 /**
@@ -48,9 +52,9 @@ const FILES: Record<string, { path: string; type: string }> = {
 // remote image, which would tell its server who opened it.
 const POLICY = "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'";
 
-export function createAtlasServer({ open }: ServerOptions): Server {
+export function createAtlasServer(options: ServerOptions): Server {
   return createServer((request, response) => {
-    handle(request, response, open).catch((error: unknown) => {
+    handle(request, response, options).catch((error: unknown) => {
       if (response.headersSent) return response.destroy();
       send(response, 500, { error: `Unexpected error: ${error instanceof Error ? error.message : String(error)}` });
     });
@@ -79,17 +83,18 @@ export function isServedHost(host: string | undefined, port: number): boolean {
   return !!match && HOSTS.includes(match[1].toLowerCase()) && Number(match[2] ?? 80) === port;
 }
 
-async function handle(request: IncomingMessage, response: ServerResponse, open: ServerOptions['open']) {
+async function handle(request: IncomingMessage, response: ServerResponse, { open, updated }: ServerOptions) {
   const port = request.socket.localPort ?? 0;
   if (!isServedHost(request.headers.host, port)) {
     return send(response, 403, { error: `Not served to ${request.headers.host ?? 'no host'}: open http://${ADDRESS}:${port}/` });
   }
   const url = new URL(request.url ?? '/', 'http://localhost');
-  const scanning = url.pathname === '/api/scan';
-  // A scan only for GET: HEAD would scan for nothing.
-  const methods = scanning ? ['GET'] : ['GET', 'HEAD'];
+  const asking = url.pathname === '/api/scan' || url.pathname === '/api/updated';
+  // The API only for GET: HEAD would ask GitHub for nothing.
+  const methods = asking ? ['GET'] : ['GET', 'HEAD'];
   if (!methods.includes(request.method ?? '')) return send(response, 405, { error: `Only ${methods.join(' and ')}` });
-  if (scanning) return answerScan(url.searchParams.get('source'), open, response);
+  if (url.pathname === '/api/scan') return answerScan(url.searchParams.get('source'), open, response);
+  if (url.pathname === '/api/updated') return answerUpdated(url.searchParams.get('link') ?? '', updated, response);
   const file = FILES[url.pathname];
   if (!file) return send(response, 404, { error: `Not found: ${url.pathname}` });
   response.writeHead(200, { 'Content-Type': file.type, 'Content-Security-Policy': POLICY, 'Cache-Control': 'no-store' });
@@ -110,6 +115,16 @@ async function answerScan(source: string | null, open: ServerOptions['open'], re
     return send(response, 400, { error: error.message });
   }
   send(response, 200, scanAnswer(result));
+}
+
+/** When the skill at the link was last updated; asked for the skill the page shows, not in the scan. */
+async function answerUpdated(link: string, updated: ServerOptions['updated'], response: ServerResponse) {
+  try {
+    send(response, 200, { updated: await updated(link) });
+  } catch (error) {
+    if (!(error instanceof AtlasError)) throw error;
+    send(response, 400, { error: error.message });
+  }
 }
 
 /** The scan as the page shows it: each skill with its link and first sentence. */
@@ -142,7 +157,7 @@ async function streamOrganization(source: OrganizationSource, response: ServerRe
   response.end();
 }
 
-function send(response: ServerResponse, status: number, body: ScanAnswer | ErrorAnswer) {
+function send(response: ServerResponse, status: number, body: ScanAnswer | UpdatedAnswer | ErrorAnswer) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(body));
 }

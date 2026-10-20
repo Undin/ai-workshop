@@ -3,7 +3,7 @@
 import type { Fetch } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { createAtlasServer, listen } from '../src/server.ts';
-import { EXAMPLE_COMMIT, github, inTree, openWith, owner, SLOW_ANSWER_MS } from './helpers.ts';
+import { EXAMPLE_COMMIT, github, inTree, lastCommit, openWith, owner, SLOW_ANSWER_MS, updatedWith } from './helpers.ts';
 
 /** Code search, the commit and the files for a repository with these SKILL.md files. */
 function repository(id: string, files: Record<string, string>): Recording {
@@ -47,6 +47,18 @@ const answers = replay(
     ...repository('JetBrains/long', {
       '.claude/skills/long/SKILL.md': `---\nname: long\ndescription: ${'Explains every step of a very long procedure, '.repeat(8)}in detail.\n---\n# Long\n`,
     }),
+    // Skills updated on different days: `late`'s answered SLOW_ANSWER_MS late, `limited`'s not at all.
+    ...repository('JetBrains/dated', {
+      '.claude/skills/early/SKILL.md': '---\nname: early\ndescription: Updated first.\n---\n# Early\n',
+      '.claude/skills/late/SKILL.md': '---\nname: late\ndescription: Updated last.\n---\n# Late\n',
+      '.claude/skills/limited/SKILL.md': '---\nname: limited\ndescription: Its update is not known.\n---\n# Limited\n',
+    }),
+    ...lastCommit('JetBrains/dated', '.claude/skills/early', '2026-03-14T09:26:53Z'),
+    ...lastCommit('JetBrains/dated', '.claude/skills/late', '2026-10-01T23:59:00Z'),
+    [`https://api.github.com/repos/JetBrains/dated/commits?sha=${EXAMPLE_COMMIT}&path=.claude/skills/limited&per_page=1`]: {
+      status: 403,
+      body: { message: 'API rate limit exceeded for user ID 1.' },
+    },
     // An organization whose second repository answers SLOW_ANSWER_MS late.
     ...owner('Slow', ['first', 'late']),
     ...inTree('Slow/first', {}),
@@ -56,12 +68,12 @@ const answers = replay(
 );
 
 // JetBrains/slow answers as JetBrains/example does, SLOW_ANSWER_MS late: a scan still running;
-// Slow/late too.
+// Slow/late too, and the last update of JetBrains/dated's `late`.
 const slow: Fetch = async (url, init) => {
-  if (!url.includes('JetBrains/slow') && !url.includes('Slow/late/')) return answers(url, init);
+  if (!url.includes('JetBrains/slow') && !url.includes('Slow/late/') && !url.includes('path=.claude/skills/late&')) return answers(url, init);
   await new Promise((resolve) => setTimeout(resolve, SLOW_ANSWER_MS));
   return answers(url.replace('JetBrains/slow', 'JetBrains/example'), init);
 };
 
-const server = createAtlasServer({ open: openWith(slow) });
+const server = createAtlasServer({ open: openWith(slow), updated: updatedWith(slow) });
 console.log(`Skill Atlas: ${(await listen(server, Number(process.env.PORT ?? 3100))).href}`);
