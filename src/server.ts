@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { fileURLToPath } from 'node:url';
 import { AtlasError } from './core/errors.ts';
 import { firstSentence, skillLink, type Organization, type Skill } from './core/model.ts';
-import { scan, scanOrganization, type OrganizationSource, type RepositoryCount, type ScanResult, type Source } from './core/scan.ts';
+import { scan, scanOrganization, type OrganizationSource, type ScanResult, type Source } from './core/scan.ts';
 
 export type ServerOptions = {
   /** Opens what the user asked to scan: a repository, or an organization's repositories. */
@@ -18,9 +18,14 @@ export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link:
 export type ErrorAnswer = { error: string };
 /**
  * A line of what GET /api/scan answers for an organization: its repositories first, then each one
- * as it is scanned; an error last, if the scan cannot go on.
+ * as it is scanned, the same answer as for the repository alone, or why not; an error last, if the
+ * scan cannot go on.
  */
-export type OrganizationLine = { organization: Organization; repositories: { id: string; url: string }[] } | RepositoryCount | ErrorAnswer;
+export type OrganizationLine =
+  | { organization: Organization; repositories: { id: string; url: string }[] }
+  | ({ id: string; url: string } & ScanAnswer)
+  | { id: string; url: string; error: string }
+  | ErrorAnswer;
 
 /** The address the server listens on and prints: `localhost` may resolve to ::1 first. */
 const ADDRESS = '127.0.0.1';
@@ -104,12 +109,17 @@ async function answerScan(source: string | null, open: ServerOptions['open'], re
     if (!(error instanceof AtlasError)) throw error;
     return send(response, 400, { error: error.message });
   }
+  send(response, 200, scanAnswer(result));
+}
+
+/** The scan as the page shows it: each skill with its link and first sentence. */
+function scanAnswer(result: ScanResult): ScanAnswer {
   const skills = result.skills.map((skill) => ({
     ...skill,
     link: skillLink(result.repository, skill),
     summary: firstSentence(skill.description),
   }));
-  send(response, 200, { repository: result.repository, skills, warnings: result.warnings });
+  return { repository: result.repository, skills, warnings: result.warnings };
 }
 
 /** A JSON line as soon as it is known; when the page is gone, the scan stops. */
@@ -122,7 +132,7 @@ async function streamOrganization(source: OrganizationSource, response: ServerRe
   try {
     for await (const scanned of scanOrganization(source)) {
       if (gone) return;
-      write(scanned);
+      write('error' in scanned ? scanned : { id: scanned.id, url: scanned.url, ...scanAnswer(scanned.result) });
     }
   } catch (error) {
     // GitHub answers no more: the page shows why, under what it already has.

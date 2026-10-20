@@ -61,8 +61,8 @@ async function printOrganization(source: OrganizationSource, { print, error }: C
       print(`${scanned.id} · not scanned: ${scanned.error}`);
       continue;
     }
-    print(`${scanned.id} · ${count(scanned.skills, 'skill', 'skills')}`);
-    for (const warning of scanned.warnings) error(`warning: ${scanned.id}: ${warning}`);
+    print(`${scanned.id} · ${count(scanned.result.skills.length, 'skill', 'skills')}`);
+    for (const warning of scanned.result.warnings) error(`warning: ${scanned.id}: ${warning}`);
   }
 }
 

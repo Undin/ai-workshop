@@ -26,10 +26,8 @@ export type OrganizationSource = {
   repositories: { id: string; url: string; open(): Promise<Source> }[];
 };
 
-/** One repository of an organization, scanned: how many skills and its warnings, or why not. */
-export type RepositoryCount =
-  | { id: string; url: string; skills: number; warnings: string[] }
-  | { id: string; url: string; error: string };
+/** One repository of an organization, scanned: its scan, or why not. */
+export type RepositoryScan = { id: string; url: string; result: ScanResult } | { id: string; url: string; error: string };
 
 type Read = { file: SkillFile; text?: string };
 
@@ -87,7 +85,7 @@ export async function scan(source: Source): Promise<ScanResult> {
  * The organization's repositories one by one, each as soon as it is scanned. One that cannot be
  * scanned is said so and the scan goes on; when GitHub answers no more, it stops: that is thrown.
  */
-export async function* scanOrganization(source: OrganizationSource): AsyncGenerator<RepositoryCount> {
+export async function* scanOrganization(source: OrganizationSource): AsyncGenerator<RepositoryScan> {
   for (const { id, url, open } of source.repositories) {
     let result: ScanResult;
     try {
@@ -97,7 +95,7 @@ export async function* scanOrganization(source: OrganizationSource): AsyncGenera
       yield { id, url, error: error.message };
       continue;
     }
-    yield { id, url, skills: result.skills.length, warnings: result.warnings };
+    yield { id, url, result };
   }
 }
 

@@ -132,7 +132,7 @@ async function organizationLines(source: string): Promise<{ response: Response; 
   return { response, lines: text.split('\n').filter(Boolean).map((line) => JSON.parse(line)) };
 }
 
-test('an organization: a JSON line at a time, the same repositories, counts and warnings as the CLI', async () => {
+test('an organization: a JSON line at a time, the same repositories, counts and warnings as the CLI, each scan as alone', async () => {
   const cli = await atlas(['scan', 'https://github.com/JetBrains']);
   const { response, lines } = await organizationLines('https://github.com/JetBrains');
   assert.equal(response.status, 200);
@@ -145,20 +145,25 @@ test('an organization: a JSON line at a time, the same repositories, counts and 
   const printed = repositories.map((line) => {
     assert.ok('id' in line, JSON.stringify(line));
     if ('error' in line) return `${line.id} · not scanned: ${line.error}`;
-    return `${line.id} · ${line.skills} ${line.skills === 1 ? 'skill' : 'skills'}`;
+    assert.ok('skills' in line);
+    return `${line.id} · ${line.skills.length} ${line.skills.length === 1 ? 'skill' : 'skills'}`;
   });
   assert.deepEqual([`JetBrains · ${repositories.length} repositories`, ...printed], cli.stdout.split('\n'));
   const warnings = repositories.flatMap((line) => ('warnings' in line ? line.warnings.map((warning) => `warning: ${line.id}: ${warning}`) : []));
   assert.deepEqual(warnings, cli.stderr.split('\n'));
+  // A repository's line: what GET /api/scan answers for it alone, listed through its tree.
+  const example = repositories.find((line) => 'id' in line && line.id === 'JetBrains/example');
+  const alone = await scanned('https://github.com/JetBrains/example');
+  assert.deepEqual(example, { id: 'JetBrains/example', url: 'https://github.com/JetBrains/example', ...alone });
 });
 
 test('an organization, GitHub answers no more → the lines so far, then `{ error }`, last', async () => {
   const { response, lines } = await organizationLines('https://github.com/Limited');
   assert.equal(response.status, 200);
-  assert.deepEqual(lines.slice(1), [
-    { id: 'Limited/first', url: 'https://github.com/Limited/first', skills: 0, warnings: [] },
-    { error: 'GitHub rate limit reached; try again in a minute' },
-  ]);
+  assert.deepEqual(
+    lines.slice(1).map((line) => ('id' in line && 'skills' in line ? [line.id, line.skills, line.warnings] : line)),
+    [['Limited/first', [], []], { error: 'GitHub rate limit reached; try again in a minute' }],
+  );
 });
 
 test('an organization GitHub does not know → 400 and the CLI message', async () => {
