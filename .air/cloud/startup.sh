@@ -11,9 +11,8 @@ cd "$(dirname "$0")/../.."
 healthcheck() {
   echo "[healthcheck] typecheck"
   npm run typecheck
-  # Without the browser tests: they need Chromium, which CI installs (npm run test:web there).
   echo "[healthcheck] tests"
-  npm run test:unit
+  npm test
   echo "[healthcheck] CLI smoke on ./fixture"
   ./skill-atlas help >/dev/null
   ./skill-atlas scan ./fixture
@@ -30,6 +29,17 @@ fi
 echo "[startup] npm ci"
 npm ci --no-audit --no-fund
 echo "[startup] dependencies installed"
+
+# Chromium for the browser tests (npm run test:web), as CI installs it: the browser into the
+# user's cache, its system libraries through apt, which needs root
+echo "[startup] playwright chromium"
+npx playwright install chromium
+if [ "$(id -u)" -eq 0 ]; then
+  npx playwright install-deps chromium
+else
+  sudo -n env PATH="$PATH" npx playwright install-deps chromium
+fi
+echo "[startup] chromium installed"
 
 if [ -n "$WARMUP" ]; then healthcheck; fi
 echo "[startup] done"
