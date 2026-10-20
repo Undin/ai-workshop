@@ -89,9 +89,10 @@ comment instead of posting a new one.
 - **e2e**: if the output on real repositories changes, run `UPDATE_EXPECTED=1 npm run e2e` and
   read the diff of `e2e/expected/`: every change must be one the spec explains.
 - **Docs**: update `README.md` if what the user sees or runs changed.
-- **Demo**: if the change is visible in the web view (`src/web/`, `spec/web.md`), follow
-  [demo-feature](../demo-feature/SKILL.md) once the feature's tests pass: a demo of exactly the
-  spec cases, a video and screenshots of its key points, committed with the screenshots.
+- **Demo**: if the change adds a feature visible in the web view or changes one (`src/web/`,
+  `spec/web.md`), follow [demo-feature](../demo-feature/SKILL.md) once the feature's tests pass:
+  a new demo, or the feature's existing one updated, of exactly the spec cases, committed with the
+  screenshots of its key points. Nothing visible changed: no demo.
 - **Commit** as you go, in a few logical steps as AGENTS.md describes (e.g. the spec with the
   feature and its tests, then the e2e expectations, then the docs). Messages in the style of
   `git log`; reference the issue (`#<n>`).
@@ -122,7 +123,32 @@ describes, the screenshots linked at the pushed commit.
 Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
 
 A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally, fix it with a
-**new commit** (no force-push), push, and watch again, until every check is green.
+**new commit** (no force-push), push, and watch again, until every check is green. A red `demo`
+check is a demo failing on real repositories: its video is still kept, and shows where.
+
+#### Demo videos
+
+On a pull request, CI's `demo` job records **every** demo (`demos/*.demo.ts`) and keeps each
+video as an artifact of its own, `<name>.webm`. Once CI is green, link in the description the
+videos of the demos **this pull request adds or changes**, and no others:
+
+```bash
+git diff --name-only origin/main...HEAD -- 'demos/*.demo.ts'   # the demos to link: demos/<name>.demo.ts
+repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+run=$(gh run list --workflow CI --event pull_request --commit "$(git rev-parse HEAD)" --json databaseId --jq '.[0].databaseId')
+gh api "repos/$repo/actions/runs/$run/artifacts" \
+  --jq ".artifacts[] | select(.name == \"<name>.webm\") | \"https://github.com/$repo/actions/runs/$run/artifacts/\(.id)\""
+```
+
+In the `## Demo` section, under that demo's screenshots, `gh pr edit <pr> --body` (this run
+created the pull request: no need to ask):
+
+```markdown
+🎬 [The video: <name>.webm](<artifact url>) (a GitHub login opens it; kept 90 days)
+```
+
+No demo added or changed: no `## Demo` section, no links. Every new push records the demos again:
+after one (step 7), point the links at the artifacts of the latest green run.
 
 ### 7. Review comments
 
@@ -183,8 +209,9 @@ For each unanswered one:
     `gh pr comment <pr> --body '<its html_url>: …'`; for a multi-point review, one reply that
     answers each point.
 
-Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch` until green. The
-pull request already exists: don't run `gh pr create` again.
+Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch` until green, and
+the demo video links of step 6 pointed at this run's artifacts. The pull request already exists:
+don't run `gh pr create` again.
 
 Then **wait for more review**: run `wait-for-review.ts <pr>` again, once CI is green. A new comment
 is handled as above, and the wait starts over. After 30 minutes without a new comment (exit 2, or
@@ -192,9 +219,9 @@ exit 2 every time with `--quiet 9`), or as soon as it exits 3, stop and go to st
 
 ### 8. Report
 
-The pull request URL, the CI status, the demo's video path (to drag into the description), each
-spec case (from step 2, or with `--pr` from the pull request body) with the test that covers it,
-the comments addressed, and anything still open for the user.
+The pull request URL, the CI status, the demo video links (if any), each spec case (from step 2,
+or with `--pr` from the pull request body) with the test that covers it, the comments addressed,
+and anything still open for the user.
 
 With `--pr`, edit the pull request's status comment:
 `🛠️ Done addressing the review comments: <how many>; CI <green | red>.`

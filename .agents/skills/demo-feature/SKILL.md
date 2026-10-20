@@ -1,6 +1,6 @@
 ---
 name: demo-feature
-description: "Record a demo of a new or changed feature of the web view for its pull request: a Playwright script, demos/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm) and screenshots of its key points (demos/<name>/<nn>-<point>.png, committed). Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
+description: "Record a demo of a new or changed feature of the web view for its pull request: a Playwright script, demos/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm, local) and screenshots of its key points (demos/<name>/<nn>-<point>.png, committed and shown in the pull request). Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
 ---
 
 Takes the feature (an issue, a pull request, or the spec cases of the change) and makes a demo of
@@ -112,12 +112,11 @@ it stays as it was:
 ![<point>](https://github.com/<owner>/<repo>/raw/<commit>/demos/<name>/<nn>-<point>.png)
 ```
 
-The video has no place GitHub can take it from automatically: give the user its path,
-`demos/out/<name>.webm` (WebM; plays in a browser, not in QuickTime), to drag into the
-description by hand. Updating the description of an existing pull request (`gh pr edit --body`)
-changes what reviewers see: ask first, unless this run is the one creating it.
+Updating the description of an existing pull request (`gh pr edit --body`) changes what
+reviewers see: ask first, unless this run is the one creating it.
 
 ### 7. Report
 
 The demo's file, its length (seconds; sped-up parts with their factors), the key points with their
-screenshots, the video's path, and anything it could not show.
+screenshots, and anything it could not show. The local video, `demos/out/<name>.webm`, is for
+looking at it; CI records every demo again on a pull request and keeps each video as an artifact.
