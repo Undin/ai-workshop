@@ -21,6 +21,10 @@ nav h2 { font-size: 1rem; margin: 0 0 0.75rem; }
 ul { list-style: none; margin: 0; padding: 0; }
 #warnings li { font-size: 0.85rem; color: #9a6700; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
 #warnings:not(:empty) { margin-bottom: 0.75rem; }
+#filtering { margin-bottom: 0.75rem; }
+#filtering label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+#filter { box-sizing: border-box; width: 100%; }
+#shown { font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0 0; }
 #skills button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 6px; padding: 0.5rem 0.6rem; cursor: pointer; }
 #skills button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
 #skills button[aria-current] { background: color-mix(in srgb, var(--accent) 16%, transparent); }

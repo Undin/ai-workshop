@@ -64,6 +64,49 @@ test('copies: `also in <paths>`', async ({ page }) => {
   await expect(skills(page).filter({ hasText: /^review-pr/ }).locator('.copies')).toHaveText('also in agent/skills/review-pr/SKILL.md');
 });
 
+test('the filter: the skills whose name or first sentence contains its text, in any case, and the count', async ({ page }) => {
+  await scan(page, FIXTURE);
+  await expect(page.getByText('Showing 10 of 10 skills')).toBeVisible();
+  // By name: both `deploy` skills.
+  await page.getByLabel('Filter').fill('deploy');
+  await expect(skills(page).locator('.name')).toHaveText(['deploy', 'deploy']);
+  await expect(page.getByText('Showing 2 of 10 skills')).toBeVisible();
+  // By first sentence, in any case, spaces around it aside: `… to staging.`
+  await page.getByLabel('Filter').fill('  STAGING ');
+  await expect(skills(page).locator('.summary')).toHaveText(['Deploy the API to staging.', 'Deploy the app to staging.']);
+  // A name and a first sentence: release-checklist, and changelog's `… for a release.`
+  await page.getByLabel('Filter').fill('release');
+  await expect(skills(page).locator('.name')).toHaveText(['changelog', 'release-checklist']);
+  await expect(page.getByText('Showing 2 of 10 skills')).toBeVisible();
+  // At once, without a new scan: the address is the same.
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent(FIXTURE)}`);
+  await page.getByLabel('Filter').fill('');
+  await expect(skills(page)).toHaveCount(10);
+  await expect(page.getByText('Showing 10 of 10 skills')).toBeVisible();
+});
+
+test('the filter keeps nothing → `No skills match <text>`', async ({ page }) => {
+  await scan(page, FIXTURE);
+  await page.getByLabel('Filter').fill(' kotlin ');
+  await expect(skills(page)).toHaveCount(0);
+  await expect(page.getByText('No skills match kotlin')).toBeVisible();
+  await expect(page.getByText(/^Showing /)).toHaveCount(0);
+});
+
+test('the filter does not change the chosen skill; a new scan empties it', async ({ page }) => {
+  await scan(page, FIXTURE);
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('changelog');
+  await page.getByLabel('Filter').fill('commit');
+  await expect(skills(page).locator('.name')).toHaveText(['commits']);
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('changelog');
+
+  await scan(page, 'https://github.com/JetBrains/example');
+  await expect(page.getByRole('heading', { name: 'JetBrains/example · 1 skill' })).toBeVisible();
+  await expect(page.getByLabel('Filter')).toHaveValue('');
+  await expect(page.getByText('Showing 1 of 1 skill')).toBeVisible();
+  await expect(skills(page)).toHaveCount(1);
+});
+
 test('the warnings, as the CLI prints them', async ({ page }) => {
   const cli = await atlas(['scan', FIXTURE]);
   await scan(page, FIXTURE);
@@ -134,6 +177,8 @@ test('no skills → `No skills found`', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'JetBrains/empty · 0 skills' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('No skills found');
   await expect(article(page)).toBeHidden();
+  // Nothing to filter: no filter field.
+  await expect(page.getByLabel('Filter')).toBeHidden();
 });
 
 test('an empty field → a hint; an unreachable repository, not a GitHub URL → the clear message of the CLI', async ({ page }) => {

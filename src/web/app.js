@@ -8,6 +8,7 @@ const form = $('#scan');
 const input = $('#source');
 const status = $('#status');
 const main = $('main');
+const filter = $('#filter');
 
 // Links in a SKILL.md open outside the page.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -19,6 +20,8 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 
 /** The scan in progress, so a newer one replaces it. */
 let current;
+/** The scanned skills, each with its list item, for the filter. */
+let listed = [];
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -28,6 +31,8 @@ form.addEventListener('submit', (event) => {
   history.pushState(null, '', url);
   scan(source);
 });
+
+filter.addEventListener('input', applyFilter);
 
 addEventListener('popstate', start);
 start();
@@ -83,11 +88,29 @@ function render({ repository, skills, warnings }) {
     button.addEventListener('click', () => choose(skill, button));
     const item = element('li', '');
     item.append(button);
-    return { item, button };
+    return { skill, item, button };
   });
   $('#skills').replaceChildren(...items.map(({ item }) => item));
+  listed = items;
+  // A new scan, a new list: the filter starts empty.
+  filter.value = '';
+  $('#filtering').hidden = !skills.length;
+  applyFilter();
   if (skills.length) choose(skills[0], items[0].button);
   else $('#skill').hidden = true;
+}
+
+/** Keeps the skills whose name or first sentence contains the filter's text, in any case. */
+function applyFilter() {
+  const text = filter.value.trim();
+  const wanted = text.toLowerCase();
+  let shown = 0;
+  for (const { skill, item } of listed) {
+    const kept = !wanted || [skill.name, skill.summary].some((field) => field.toLowerCase().includes(wanted));
+    item.hidden = !kept;
+    if (kept) shown++;
+  }
+  $('#shown').textContent = shown ? `Showing ${shown} of ${listed.length} ${listed.length === 1 ? 'skill' : 'skills'}` : `No skills match ${text}`;
 }
 
 /** The skill's SKILL.md: the front matter as a table, the body as Markdown. */
