@@ -123,21 +123,37 @@ describes, the screenshots linked at the pushed commit.
 Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
 
 A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally, fix it with a
-**new commit** (no force-push), push, and watch again, until every check is green. A red `demo`
-check (the Demos workflow) is a demo failing on real repositories: its video is still kept, and
-shows where.
+**new commit** (no force-push), push, and watch again, until every check is green.
 
 #### Demo videos
 
-On a pull request, the Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)), apart from
-CI, records **every** demo (`demos/*.demo.ts`) and keeps each video as an artifact of its own,
-`<name>.webm`. Once its run is green, link in the description the videos of the demos **this pull
-request adds or changes**, and no others:
+Only if this pull request **adds or changes a demo** (step 4); else skip this, no links:
 
 ```bash
-git diff --name-only origin/main...HEAD -- 'demos/*.demo.ts'   # the demos to link: demos/<name>.demo.ts
+git diff --name-only origin/main...HEAD -- 'demos/*.demo.ts'   # demos/<name>.demo.ts: the demos to record
+```
+
+The Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)) is not part of CI: it runs
+only when asked, records the demos it is given on real repositories, and keeps each video as an
+artifact of its own, `<name>.webm`. Once CI is green, run it on the branch for exactly those demos,
+and wait for it:
+
+```bash
+gh workflow run Demos --ref <branch> -f demos='<name> <name>'
+# its run, on the pushed commit (it may take a few seconds to appear: ask again until it does)
+run=$(gh run list --workflow Demos --event workflow_dispatch --branch <branch> --commit "$(git rev-parse HEAD)" \
+  --json databaseId --jq '.[0].databaseId')
+gh run watch "$run" --exit-status
+```
+
+A red run is a demo failing on real repositories: its video is still kept, and shows where; read it
+(`gh run view "$run" --log-failed`), fix it as a red check above, and run it again. `gh workflow
+run` fails while demos.yml is not on the default branch yet: say so in the report, no links.
+
+Once the run is green, each demo's video link:
+
+```bash
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-run=$(gh run list --workflow Demos --event pull_request --commit "$(git rev-parse HEAD)" --json databaseId --jq '.[0].databaseId')
 gh api "repos/$repo/actions/runs/$run/artifacts" \
   --jq ".artifacts[] | select(.name == \"<name>.webm\") | \"https://github.com/$repo/actions/runs/$run/artifacts/\(.id)\""
 ```
@@ -149,8 +165,8 @@ created the pull request: no need to ask):
 🎬 [The video: <name>.webm](<artifact url>) (a GitHub login opens it; kept 90 days)
 ```
 
-No demo added or changed: no `## Demo` section, no links. Every new push records the demos again:
-after one (step 7), point the links at the artifacts of the latest green Demos run.
+A later push that changes a demo (step 7): run the Demos workflow again for it and point its link
+at the new run's artifact.
 
 ### 7. Review comments
 
@@ -212,7 +228,7 @@ For each unanswered one:
     answers each point.
 
 Then: new commits, step 5 (local green), `git push`, `gh pr checks <pr> --watch` until green, and
-the demo video links of step 6 pointed at this run's artifacts. The pull request already exists:
+if a demo changed, its video recorded again (step 6, Demo videos). The pull request already exists:
 don't run `gh pr create` again.
 
 Then **wait for more review**: run `wait-for-review.ts <pr>` again, once CI is green. A new comment

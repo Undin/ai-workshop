@@ -119,5 +119,5 @@ reviewers see: ask first, unless this run is the one creating it.
 
 The demo's file, its length (seconds; sped-up parts with their factors), the key points with their
 screenshots, and anything it could not show. The local video, `demos/out/<name>.webm`, is for
-looking at it; on a pull request, the Demos workflow (`.github/workflows/demos.yml`) records every
-demo again and keeps each video as an artifact.
+looking at it; the Demos workflow (`.github/workflows/demos.yml`, run on demand: implement-issue
+step 6) records it again on GitHub and keeps the video as an artifact to link.
