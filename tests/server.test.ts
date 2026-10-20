@@ -84,7 +84,7 @@ test('on GitHub: the link pins the scanned commit', async () => {
   );
 });
 
-test('an empty field, an unreachable repository → 400 and the CLI message', async () => {
+test('an empty field → 400 and a hint; an unreachable repository, not a GitHub URL → 400 and the CLI message', async () => {
   for (const source of ['', '   ']) {
     const { response, body } = await scanOf(source);
     assert.equal(response.status, 400);
@@ -96,6 +96,11 @@ test('an empty field, an unreachable repository → 400 and the CLI message', as
   const offline = await scanOf('https://github.com/JetBrains/not-answered');
   assert.equal(offline.response.status, 400);
   assert.match((offline.body as { error: string }).error, /^Cannot reach GitHub: /);
+  // Not a GitHub URL: what the CLI says for it.
+  const gitlab = 'https://gitlab.com/JetBrains/kotlin';
+  const cli = await atlas(['scan', gitlab]);
+  assert.equal(cli.code, 1);
+  assert.deepEqual((await scanOf(gitlab)).body, { error: cli.stderr });
 });
 
 test('anything else → 404; not GET → 405; the scan, not HEAD either', async () => {

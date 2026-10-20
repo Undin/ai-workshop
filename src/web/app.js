@@ -95,9 +95,16 @@ function choose(skill, button) {
 
   $('#skill').hidden = false;
   $('#skill-name').textContent = skill.name;
-  const link = $('#skill-link');
-  link.href = skill.link;
-  link.textContent = skill.path;
+  // A web page cannot open a file:// link: a local skill shows its path.
+  if (skill.link.startsWith('file:')) {
+    $('#skill-location').replaceChildren(element('code', decodeURIComponent(new URL(skill.link).pathname)));
+  } else {
+    const link = element('a', skill.path);
+    link.href = skill.link;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    $('#skill-location').replaceChildren(link);
+  }
   $('#skill-copies').textContent = skill.copies.length ? `also in ${skill.copies.join(', ')}` : '';
   $('#skill-copies').hidden = !skill.copies.length;
 
