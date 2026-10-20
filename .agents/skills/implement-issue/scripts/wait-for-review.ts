@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Step 7 of ../SKILL.md, the part that needs no judgement: what review on a pull request is still
 // unanswered, now or once it comes. Asks GitHub through `gh api` every interval, until there is some
-// (printed as JSON, exit 0) or the quiet period passes without any (`[]`, exit 2). Exit 1: an error.
+// (printed as JSON, exit 0), the quiet period passes without any (`[]`, exit 2), or no more is to
+// come: the pull request is merged or closed, or approved by a maintainer (what is still
+// unanswered, exit 3). Exit 1: an error.
 import { execFile } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { promisify } from 'node:util';
@@ -16,8 +18,12 @@ const REPLY = '<!-- implement-issue -->';
 /** End status comments: neither review nor reply. */
 const STATUS = ['<!-- implement-issue:started -->', '<!-- code-review:started -->'];
 
-type User = { login: string } | null;
-type Review = { id: number; user: User; state: string; body: string | null; html_url: string; submitted_at: string };
+type User = { login: string; type?: string } | null;
+type Review = {
+  id: number; user: User; state: string; body: string | null; html_url: string; submitted_at: string;
+  author_association?: string;
+};
+type Pull = { state: string; merged: boolean };
 type Comment = { id: number; user: User; body: string; html_url: string; created_at: string };
 type Inline = Comment & { in_reply_to_id?: number; path: string; line: number | null; original_line: number | null };
 
@@ -29,16 +35,20 @@ type Said = { author: string; url: string; body: string };
 
 const run = promisify(execFile);
 
-/** Every page of a list `gh api` answers, as one list. */
-async function list<T>(path: string): Promise<T[]> {
+/** What `gh api <args>` answers, parsed. */
+async function api<T>(args: string[]): Promise<T> {
+  const path = args.at(-1)!;
   try {
-    const { stdout } = await run('gh', ['api', '--paginate', '--slurp', path], { maxBuffer: 2 ** 28 });
-    return (JSON.parse(stdout) as T[][]).flat();
+    const { stdout } = await run('gh', ['api', ...args], { maxBuffer: 2 ** 28 });
+    return JSON.parse(stdout) as T;
   } catch (error) {
     const stderr = (error as { stderr?: string }).stderr?.trim();
     throw new Error(`gh api ${path} failed${stderr ? `: ${stderr}` : ''}`);
   }
 }
+
+/** Every page of a list `gh api` answers, as one list. */
+const list = async <T>(path: string) => (await api<T[][]>(['--paginate', '--slurp', path])).flat();
 
 // A marker counts on the last line only: a comment may quote one.
 const endsWith = (body: string | null, marker: string) => !!body?.trimEnd().endsWith(marker);
@@ -48,9 +58,24 @@ const isLgtm = (body: string) => /^LGTM[.!]*$/i.test(body.trim().split('\n')[0].
 const author = (user: User) => user?.login ?? 'ghost';
 const said = (comment: Comment): Said => ({ author: author(comment.user), url: comment.html_url, body: comment.body });
 
+/** Who maintains the repository: their approval ends the review. */
+const MAINTAINERS = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+/** The review states that decide, unlike COMMENTED and PENDING: a later one overrides an earlier one. */
+const DECISIONS = ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'];
+
+/** The maintainer who approves the pull request, if one does: not a bot, and not overridden since. */
+function approver(reviews: Review[]): string | undefined {
+  const last = new Map<string, Review>();
+  const decisions = reviews
+    .filter((review) => review.user?.type !== 'Bot' && MAINTAINERS.includes(review.author_association ?? ''))
+    .filter((review) => DECISIONS.includes(review.state))
+    .sort((a, b) => a.submitted_at.localeCompare(b.submitted_at) || a.id - b.id);
+  for (const review of decisions) last.set(author(review.user), review);
+  return [...last.values()].find((review) => review.state === 'APPROVED')?.user?.login;
+}
+
 /** The review on pull request `pr` that no reply answers yet, oldest first. */
-async function unanswered(pr: number): Promise<Unanswered[]> {
-  const reviews = await list<Review>(`repos/{owner}/{repo}/pulls/${pr}/reviews`);
+async function unanswered(pr: number, reviews: Review[]): Promise<Unanswered[]> {
   const conversation = await list<Comment>(`repos/{owner}/{repo}/issues/${pr}/comments`);
   const inline = await list<Inline>(`repos/{owner}/{repo}/pulls/${pr}/comments`);
   const found: { at: string; item: Unanswered }[] = [];
@@ -132,10 +157,26 @@ async function main(args: string[]): Promise<number> {
   try {
     // Once now, then every interval, the last time when the quiet period ends.
     for (;;) {
-      const found = await unanswered(pr);
+      const pull = await api<Pull>([`repos/{owner}/{repo}/pulls/${pr}`]);
+      const reviews = await list<Review>(`repos/{owner}/{repo}/pulls/${pr}/reviews`);
+      const found = await unanswered(pr, reviews);
+      // Merged or closed: no review to come, and no fix to make on it; what is unanswered is left to the user.
+      const over = pull.merged ? 'merged' : pull.state === 'closed' ? 'closed' : undefined;
+      if (over) {
+        console.log(JSON.stringify(found, null, 2));
+        console.error(`#${pr} is ${over}: no more review to wait for.`);
+        return 3;
+      }
       if (found.length) {
         console.log(JSON.stringify(found, null, 2));
         return 0;
+      }
+      // Approved, with everything answered: no more review to wait for either.
+      const approved = approver(reviews);
+      if (approved) {
+        console.log('[]');
+        console.error(`#${pr} is approved by ${approved}: no more review to wait for.`);
+        return 3;
       }
       const left = deadline - Date.now();
       if (left <= 0) break;
