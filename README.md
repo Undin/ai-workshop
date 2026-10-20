@@ -24,7 +24,8 @@ Undin/ai-workshop · 2 skills
 …
 ```
 
-Or in a local web view: a field for a repository link, its skills (with a filter) and their SKILL.md;
+Or in a local web view: a field for a repository link, its skills (with a filter) and their SKILL.md
+(with when it was last updated);
 for an organization, its repositories as they are scanned, each a link to its page from that scan,
 which goes on meanwhile (or stops, with Stop).
 
