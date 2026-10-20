@@ -40,8 +40,10 @@ async function list<T>(path: string): Promise<T[]> {
   }
 }
 
-const isReply = (body: string | null) => !!body?.includes(REPLY);
-const isStatus = (body: string | null) => STATUS.some((marker) => body?.includes(marker));
+// A marker counts on the last line only: a comment may quote one.
+const endsWith = (body: string | null, marker: string) => !!body?.trimEnd().endsWith(marker);
+const isReply = (body: string | null) => endsWith(body, REPLY);
+const isStatus = (body: string | null) => STATUS.some((marker) => endsWith(body, marker));
 const isLgtm = (body: string) => /^LGTM[.!]*$/i.test(body.trim().split('\n')[0].trim());
 const author = (user: User) => user?.login ?? 'ghost';
 const said = (comment: Comment): Said => ({ author: author(comment.user), url: comment.html_url, body: comment.body });

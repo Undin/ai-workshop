@@ -143,6 +143,15 @@ test('status comments are neither review nor a reply, even when they link to a r
   assert.deepEqual(listed.map((item: { url: string }) => item.url), [`${PR}#pullrequestreview-1`]);
 });
 
+test('a marker counts at the end of a comment only, not quoted in it', (t) => {
+  const listed = found(t, {
+    conversation: [[[comment(2, 2, 'Status is `<!-- code-review:started -->`, please rename it.')]]],
+    inline: [[[inline(1, 1, 'The `<!-- implement-issue -->` marker is checked with includes.')]]],
+    reviews: [[[review(3, 3, 'Replies end with `<!-- implement-issue -->`; one point: …')]]],
+  });
+  assert.deepEqual(listed.map((item: { id: number }) => item.id), [1, 2, 3]);
+});
+
 test('oldest first, of every kind', (t) => {
   const listed = found(t, {
     reviews: [[[review(2, 2, 'A summary.')]]],

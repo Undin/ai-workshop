@@ -145,7 +145,8 @@ timeout), run it with `--quiet 9` again while it exits 2, until 30 minutes have 
 
 How it tells what is unanswered: every reply this skill posts ends with the marker
 `<!-- implement-issue -->`. Status comments (ending with `<!-- implement-issue:started -->` or
-`<!-- code-review:started -->`) are neither review nor reply: skipped. Who wrote a comment
+`<!-- code-review:started -->`) are neither review nor reply: skipped. A marker counts only at the
+end of a comment: one quoted inside it doesn't. Who wrote a comment
 doesn't tell a review from a reply: the PR author reviews too, and on Air the reviewer and this
 session can be the same bot. So a comment with the marker is a reply, and every other one is
 review to answer. Review summaries whose first line is `LGTM` (code-review's approval, or its
