@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Pass `--comment [<pr>]` (e.g. from a JetBrains Air cloud task) to post the findings as inline review comments on the GitHub pull request. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Pass `--comment [<pr>]` (e.g. from a JetBrains Air cloud task) to post the critical and major findings as inline review comments on the GitHub pull request, or approve it with LGTM when there are none. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
@@ -111,7 +111,10 @@ See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole
 
 ## On CI (`--comment`)
 
-`--comment [<pr>]` is for unattended runs, such as a JetBrains Air cloud task: the task prompt passes the flag, nothing is detected from the environment. It posts the findings to the GitHub pull request as one review, each finding as an inline comment on the code it's about.
+`--comment [<pr>]` is for unattended runs, such as a JetBrains Air cloud task: the task prompt passes the flag, nothing is detected from the environment. It posts one review to the GitHub pull request:
+
+- **Only critical and major findings are posted**, each as an inline comment on the code it's about. Normal and minor ones stay in the printed report only.
+- **No critical or major findings**: the review approves the pull request with the body `LGTM`.
 
 **Requirements**: `gh` authenticated with a token that can write pull request reviews (`pull-requests: write`), and a checkout with enough history to find the merge-base.
 
@@ -122,15 +125,17 @@ See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole
 - `headRefOid` must equal `git rev-parse HEAD`; otherwise the line numbers would point at other code, so stop with an error.
 - If no spec is found in step 2, skip the Spec axis and say so in the review body.
 
-**Anchor the findings.** A finding goes inline only if its `<path>:<line>` (and `<end line>`, for a range) lies inside a hunk of `gh pr diff <number>` on the new side. Everything else, including findings with `-` as location, goes into the review body.
+**Anchor the findings.** A posted finding goes inline only if its `<path>:<line>` (and `<end line>`, for a range) lies inside a hunk of `gh pr diff <number>` on the new side. Everything else, including findings with `-` as location, goes into the review body.
 
-**Post one review**, so the pull request gets one notification, not one per finding. Write `review.json` and send it with `gh api repos/{owner}/{repo}/pulls/<number>/reviews --method POST --input review.json`:
+**Post one review**, so the pull request gets one notification, not one per finding. Write `review.json` and send it with `gh api repos/{owner}/{repo}/pulls/<number>/reviews --method POST --input review.json`.
+
+With critical or major findings:
 
 ```json
 {
   "commit_id": "<headRefOid>",
   "event": "COMMENT",
-  "body": "<the summary line from step 5, then the findings that aren't inline, under ## Standards and ## Spec>",
+  "body": "<the critical and major counts per axis, then those findings that aren't inline, under ## Standards and ## Spec>",
   "comments": [
     {
       "path": "src/core/scan.ts",
@@ -144,9 +149,22 @@ See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole
 }
 ```
 
-Leave out `start_line` and `start_side` for a single line. Every comment body starts with the severity label and the axis. The event is always `COMMENT`: the review informs, a human decides.
+Leave out `start_line` and `start_side` for a single line. Every comment body starts with the severity label and the axis.
 
-**If GitHub rejects the review** (usually `422` for a line outside the diff), post it again with every finding in the body and no `comments`.
+With none, approve:
+
+```json
+{
+  "commit_id": "<headRefOid>",
+  "event": "APPROVE",
+  "body": "LGTM"
+}
+```
+
+**If GitHub rejects the review** with `422`, post it again:
+
+- a line outside the diff: every posted finding in the body and no `comments`;
+- the token's user can't approve its own pull request: `"event": "COMMENT"` with the same `LGTM` body.
 
 Finally print the report from step 5 and the review's URL (`html_url` in the response) in the task output.
 
