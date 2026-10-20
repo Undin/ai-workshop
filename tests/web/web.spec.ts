@@ -105,13 +105,9 @@ test('on GitHub: the link pins the scanned commit', async ({ page }) => {
 });
 
 test('the SKILL.md is untrusted: sanitized, its scripts never run, remote images not loaded', async ({ page }) => {
-  // Chromium reports a request the CSP blocks too, so: no answer from anywhere else, and the
-  // CSP's violation for the image.
-  const remote: string[] = [];
-  page.on('response', (response) => {
-    if (!response.url().startsWith('http://localhost:')) remote.push(response.url());
-  });
-  // A script in the page, as text: the tests are type-checked without the DOM's types.
+  // The CSP's violation for the image proves it was not loaded; Chromium reports even a request
+  // the CSP blocks, so watching the requests would not. A script in the page, as text: the tests
+  // are type-checked without the DOM's types.
   await page.addInitScript({
     content: "globalThis.blocked = []; addEventListener('securitypolicyviolation', (event) => blocked.push(event.blockedURI));",
   });
@@ -125,7 +121,6 @@ test('the SKILL.md is untrusted: sanitized, its scripts never run, remote images
   expect(await page.evaluate(() => (globalThis as { pwned?: string }).pwned)).toBeUndefined();
   await expect(article(page).getByRole('img', { name: 'tracker' })).toBeAttached();
   await expect.poll(() => page.evaluate(() => (globalThis as { blocked?: string[] }).blocked)).toContain('https://tracker.example/pixel.png');
-  expect(remote).toEqual([]);
 });
 
 test('no skills → `No skills found`', async ({ page }) => {

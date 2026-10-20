@@ -9,29 +9,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
-import { listen } from '../src/server.ts';
+import { createBrowserBackend } from '../src/browser.ts';
+import { run } from '../src/commands.ts';
+import { isServedHost, listen, type ErrorAnswer, type ScanAnswer } from '../src/server.ts';
 import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
 
 const server = atlasServer();
 const base = await listen(server, 0);
 after(() => server.close());
 
-type Scanned = {
-  repository: { id: string };
-  skills: {
-    name: string;
-    path: string;
-    link: string;
-    summary: string;
-    copies: string[];
-    text: string;
-    properties: Record<string, unknown>;
-    body: string;
-  }[];
-  warnings: string[];
-};
-
-async function get(path: string, init?: RequestInit): Promise<{ response: Response; body: any }> {
+async function get(path: string, init?: RequestInit): Promise<{ response: Response; body: unknown }> {
   const response = await fetch(new URL(path, base), init);
   // A HEAD answer has no body.
   const json = response.headers.get('content-type')?.startsWith('application/json') && init?.method !== 'HEAD';
@@ -39,13 +26,14 @@ async function get(path: string, init?: RequestInit): Promise<{ response: Respon
 }
 
 const scanOf = (source: string) => get(`/api/scan?source=${encodeURIComponent(source)}`);
+const scanned = async (source: string) => (await scanOf(source)).body as ScanAnswer;
 
 test('GET / → the page, scripts only from the server', async () => {
   const { response, body } = await get('/');
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type')!, /^text\/html/);
   assert.match(response.headers.get('content-security-policy')!, /default-src 'self'; img-src 'self' data:;/);
-  assert.match(body, /<title>Skill Atlas<\/title>/);
+  assert.match(String(body), /<title>Skill Atlas<\/title>/);
   for (const path of ['/app.js', '/style.css', '/vendor/marked.js', '/vendor/purify.js']) {
     assert.equal((await get(path)).response.status, 200, path);
   }
@@ -55,21 +43,21 @@ test('the scan as JSON: the same skills, links, copies and warnings as the CLI',
   const cli = await atlas(['scan', FIXTURE]);
   const { response, body } = await scanOf(FIXTURE);
   assert.equal(response.status, 200);
-  const scanned = body as Scanned;
+  const answer = body as ScanAnswer;
   const [title, ...lines] = cli.stdout.split('\n');
-  assert.equal(`${scanned.repository.id} · ${scanned.skills.length} skills`, title);
-  const printed = scanned.skills.flatMap((skill) => [
+  assert.equal(`${answer.repository.id} · ${answer.skills.length} skills`, title);
+  const printed = answer.skills.flatMap((skill) => [
     skill.summary ? `${skill.name} — ${skill.summary}` : skill.name,
     `  ${skill.link}`,
     ...(skill.copies.length ? [`  also in ${skill.copies.join(', ')}`] : []),
   ]);
   assert.deepEqual(printed, lines);
-  assert.deepEqual(scanned.warnings.map((warning) => `warning: ${warning}`), cli.stderr.split('\n'));
+  assert.deepEqual(answer.warnings.map((warning) => `warning: ${warning}`), cli.stderr.split('\n'));
 });
 
 test('each skill comes with its SKILL.md text, and its parts', async () => {
-  const scanned = (await scanOf(FIXTURE)).body as Scanned;
-  for (const skill of scanned.skills) {
+  const answer = await scanned(FIXTURE);
+  for (const skill of answer.skills) {
     const text = readFileSync(join(FIXTURE, skill.path), 'utf8');
     const { properties, body } = parseSkill(text);
     assert.equal(skill.text, text, skill.path);
@@ -78,10 +66,10 @@ test('each skill comes with its SKILL.md text, and its parts', async () => {
 });
 
 test('on GitHub: the link pins the scanned commit', async () => {
-  const scanned = (await scanOf('https://github.com/JetBrains/example')).body as Scanned;
-  assert.equal(scanned.repository.id, 'JetBrains/example');
+  const answer = await scanned('https://github.com/JetBrains/example');
+  assert.equal(answer.repository.id, 'JetBrains/example');
   assert.deepEqual(
-    scanned.skills.map((skill) => [skill.name, skill.summary, skill.link]),
+    answer.skills.map((skill) => [skill.name, skill.summary, skill.link]),
     [['commits', 'Write commit messages the way this repository does.', `https://github.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`]],
   );
 });
@@ -94,10 +82,10 @@ test('an empty field → 400 and a hint; an unreachable repository, not a GitHub
   }
   const missing = await scanOf(join(FIXTURE, 'no-such-directory'));
   assert.equal(missing.response.status, 400);
-  assert.match((missing.body as { error: string }).error, /^Not a GitHub URL or a readable directory: .*no-such-directory$/);
+  assert.match((missing.body as ErrorAnswer).error, /^Not a GitHub URL or a readable directory: .*no-such-directory$/);
   const offline = await scanOf('https://github.com/JetBrains/not-answered');
   assert.equal(offline.response.status, 400);
-  assert.match((offline.body as { error: string }).error, /^Cannot reach GitHub: /);
+  assert.match((offline.body as ErrorAnswer).error, /^Cannot reach GitHub: /);
   // Not a GitHub URL: what the CLI says for it.
   const gitlab = 'https://gitlab.com/JetBrains/kotlin';
   const cli = await atlas(['scan', gitlab]);
@@ -135,6 +123,17 @@ test('only for localhost and 127.0.0.1: another name → 403 (DNS rebinding)', a
   }
 });
 
+test('the Host check: the name and the port, which browsers leave out for 80', () => {
+  assert.ok(isServedHost('localhost:3000', 3000));
+  assert.ok(isServedHost('127.0.0.1:3000', 3000));
+  assert.ok(isServedHost('LOCALHOST:3000', 3000));
+  assert.ok(isServedHost('localhost', 80));
+  assert.ok(isServedHost('127.0.0.1:80', 80));
+  for (const host of [undefined, '', 'localhost', 'localhost:3001', 'attacker.example:3000', 'localhost.attacker.example:3000', 'localhost:3000@attacker.example', '[::1]:3000']) {
+    assert.ok(!isServedHost(host, 3000), host);
+  }
+});
+
 test('skill-atlas serve: prints its address, serves the page, stores nothing', async (t) => {
   const cwd = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
@@ -144,12 +143,34 @@ test('skill-atlas serve: prints its address, serves the page, stores nothing', a
   const address = /^Skill Atlas: (http:\/\/127\.0\.0\.1:\d+\/)\n$/.exec(line.toString())?.[1];
   assert.ok(address, line.toString());
   const scanned = await (await fetch(`${address}api/scan?source=${encodeURIComponent(FIXTURE)}`)).json();
-  assert.equal((scanned as Scanned).repository.id, 'fixture');
+  assert.equal((scanned as ScanAnswer).repository.id, 'fixture');
   assert.deepEqual(readdirSync(cwd), []);
 });
 
-test('skill-atlas serve: a bad port → a clear message, exit code 1', () => {
+test('skill-atlas serve: a bad port → a clear message, exit code 1', async () => {
   const bad = spawnSync(process.execPath, [CLI, 'serve', '--port', 'many'], { encoding: 'utf8' });
   assert.equal(bad.status, 1);
   assert.equal(bad.stderr, 'Not a port: many\nUsage: skill-atlas serve [--port <port>]\n');
+  // Digits only, 0 to 65535; 0 picks a free port.
+  for (const port of ['', '0x1F90', '1e3', '-1', '65536', '80.5', ' 80']) {
+    const served: number[] = [];
+    const errors: string[] = [];
+    const code = await run(['serve', '--port', port], {
+      open: () => Promise.reject(new Error('not opened')),
+      print: () => {},
+      error: (text) => errors.push(text),
+      serve: async (number) => (served.push(number), new URL('http://127.0.0.1/')),
+    });
+    assert.deepEqual([code, served, errors], [1, [], [`Not a port: ${port}\nUsage: skill-atlas serve [--port <port>]`]], port);
+  }
+});
+
+test('the browser terminal has no server: its help leaves `serve` out', async () => {
+  const terminal = createBrowserBackend({ fetch: () => Promise.reject(new Error('no network')) });
+  const help = await terminal.run('skill-atlas help');
+  assert.match(help, /^  scan /m);
+  assert.doesNotMatch(help, /serve/);
+  assert.match(await terminal.run('serve'), /^Unknown command: serve\n/);
+  // The Node CLI lists it.
+  assert.match(spawnSync(process.execPath, [CLI, 'help'], { encoding: 'utf8' }).stdout, /^  serve \[--port <port>\]/m);
 });

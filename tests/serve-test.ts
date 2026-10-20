@@ -1,9 +1,8 @@
 // The web view for the browser tests in tests/web/: `skill-atlas serve`, with GitHub answering from
 // the recordings in tests/helpers.ts and below, never from the network.
 import { replay, type Recording } from '../src/core/replay.ts';
-import { openSource } from '../src/open.ts';
 import { createAtlasServer, listen } from '../src/server.ts';
-import { EXAMPLE_COMMIT, github } from './helpers.ts';
+import { EXAMPLE_COMMIT, github, openWith } from './helpers.ts';
 
 /** Code search, the commit and the files for a repository with these SKILL.md files. */
 function repository(id: string, files: Record<string, string>): Recording {
@@ -51,5 +50,5 @@ const answers = replay(
   github,
 );
 
-const server = createAtlasServer({ open: (input) => openSource(input, { fetch: answers, token: 'test' }) });
+const server = createAtlasServer({ open: openWith(answers) });
 console.log(`Skill Atlas: ${(await listen(server, Number(process.env.PORT ?? 3100))).href}`);
