@@ -31,4 +31,9 @@ running one, and its result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - `GET /api/scan?source=<link>`; not `HEAD`, which would scan for nothing → `{ repository, skills, warnings }`; each skill has its `link`,
   its first sentence as `summary`, its SKILL.md `text`, and that text's parts: the other front
   matter keys as `properties`, the Markdown `body`
+- For an organization: `application/x-ndjson`, one JSON line at a time, each as soon as it is known:
+  `{ organization, repositories }` (each `{ id, url }`), then for each repository as it is scanned
+  `{ id, url, skills, warnings }` (`skills`: the count) or `{ id, url, error }`; the scan cannot go
+  on → `{ error }`, last
+- The page closes or scans something else → the server stops scanning the organization
 - A clear message → status 400, `{ error }`

@@ -15,6 +15,33 @@ export const SLOW_ANSWER_MS = 2000;
 /** The commit GitHub answers for JetBrains/example. */
 export const EXAMPLE_COMMIT = '5ab6270ab772d113e8ad52ebfcaa0109c522ae00';
 
+/** What GitHub answers for a repository listed through its tree, at EXAMPLE_COMMIT, with these files. */
+export function inTree(id: string, files: Record<string, string>): Recording {
+  return {
+    [`https://api.github.com/repos/${id}/commits/main`]: { status: 200, body: { sha: EXAMPLE_COMMIT } },
+    [`https://api.github.com/repos/${id}/git/trees/${EXAMPLE_COMMIT}?recursive=1`]: {
+      status: 200,
+      body: { truncated: false, tree: Object.keys(files).map((path) => ({ path, mode: '100644', type: 'blob', sha: 'file' })) },
+    },
+    ...Object.fromEntries(
+      Object.entries(files).map(([path, body]) => [`https://raw.githubusercontent.com/${id}/${EXAMPLE_COMMIT}/${path}`, { status: 200, body }]),
+    ),
+  };
+}
+
+/** What GitHub answers for an owner, an organization or a user, with these public repositories. */
+export function owner(login: string, repositories: string[]): Recording {
+  return {
+    [`https://api.github.com/users/${login}`]: { status: 200, body: { login } },
+    [`https://api.github.com/users/${login}/repos?per_page=100&page=1`]: {
+      status: 200,
+      body: repositories.map((name) => ({ full_name: `${login}/${name}`, default_branch: 'main' })),
+    },
+  };
+}
+
+const COMMITS = '---\nname: commits\ndescription: Write commit messages the way this repository does. Use for every commit.\n---\n# Commits\n';
+
 /** What GitHub answers for a small repository, JetBrains/example, with one skill. */
 export const EXAMPLE: Recording = {
   'https://api.github.com/repos/JetBrains/example': { status: 200, body: { full_name: 'JetBrains/example', default_branch: 'main' } },
@@ -23,10 +50,29 @@ export const EXAMPLE: Recording = {
     status: 200,
     body: { total_count: 1, items: [{ path: '.claude/skills/commits/SKILL.md' }] },
   },
-  [`https://raw.githubusercontent.com/JetBrains/example/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`]: {
-    status: 200,
-    body: '---\nname: commits\ndescription: Write commit messages the way this repository does. Use for every commit.\n---\n# Commits\n',
+  [`https://raw.githubusercontent.com/JetBrains/example/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`]: { status: 200, body: COMMITS },
+
+  // The JetBrains organization: JetBrains/example, one with a warning, an empty one, one without skills.
+  ...owner('JetBrains', ['example', 'malformed', 'new', 'none']),
+  'https://api.github.com/repos/JetBrains/new/commits/main': { status: 409, body: { message: 'Git Repository is empty.' } },
+  ...inTree('JetBrains/example', { '.claude/skills/commits/SKILL.md': COMMITS, 'README.md': '# Example\n' }),
+  ...inTree('JetBrains/malformed', {
+    '.claude/skills/broken/SKILL.md': '---\nname: [broken\n---\n# Broken\n',
+    '.claude/skills/commits/SKILL.md': COMMITS,
+  }),
+  ...inTree('JetBrains/none', { 'README.md': '# None\n' }),
+
+  // Limited: GitHub's rate limit is reached at its second repository; the third is never asked for.
+  ...owner('Limited', ['first', 'second', 'third']),
+  ...inTree('Limited/first', {}),
+  'https://api.github.com/repos/Limited/second/commits/main': {
+    status: 403,
+    body: { message: 'API rate limit exceeded for user ID 1. (But here is the good news: ...)' },
   },
+
+  // A user with no public repositories; an owner GitHub does not know.
+  ...owner('nobody', []),
+  'https://api.github.com/users/no-such-owner': { status: 404, body: { message: 'Not Found' } },
 };
 
 export const github = replay(EXAMPLE);

@@ -1,5 +1,6 @@
+import { AtlasError, GitHubUnavailable } from './errors.ts';
 import { findSkills, isTestData, type SkillFile } from './find.ts';
-import { sortSkills, type Repository, type Skill } from './model.ts';
+import { sortSkills, type Organization, type Repository, type Skill } from './model.ts';
 import { parseSkill } from './parse.ts';
 
 /** A repository to scan: its files, and how to read them. */
@@ -18,6 +19,17 @@ export type Source = {
 };
 
 export type ScanResult = { repository: Repository; skills: Skill[]; warnings: string[] };
+
+/** An organization to scan: its repositories, each opened when its turn comes. */
+export type OrganizationSource = {
+  organization: Organization;
+  repositories: { id: string; url: string; open(): Promise<Source> }[];
+};
+
+/** One repository of an organization, scanned: how many skills and its warnings, or why not. */
+export type RepositoryCount =
+  | { id: string; url: string; skills: number; warnings: string[] }
+  | { id: string; url: string; error: string };
 
 type Read = { file: SkillFile; text?: string };
 
@@ -69,6 +81,24 @@ export async function scan(source: Source): Promise<ScanResult> {
     }
   }
   return { repository: source.repository, skills: sortSkills(skills), warnings };
+}
+
+/**
+ * The organization's repositories one by one, each as soon as it is scanned. One that cannot be
+ * scanned is said so and the scan goes on; when GitHub answers no more, it stops: that is thrown.
+ */
+export async function* scanOrganization(source: OrganizationSource): AsyncGenerator<RepositoryCount> {
+  for (const { id, url, open } of source.repositories) {
+    let result: ScanResult;
+    try {
+      result = await scan(await open());
+    } catch (error) {
+      if (!(error instanceof AtlasError) || error instanceof GitHubUnavailable) throw error;
+      yield { id, url, error: error.message };
+      continue;
+    }
+    yield { id, url, skills: result.skills.length, warnings: result.warnings };
+  }
 }
 
 /** Each link's target; links in test data are not read. */

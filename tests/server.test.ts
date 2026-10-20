@@ -12,8 +12,9 @@ import { after, test, type TestContext } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
 import { createBrowserBackend } from '../src/browser.ts';
 import { run } from '../src/commands.ts';
-import { isServedHost, listen, type ErrorAnswer, type ScanAnswer } from '../src/server.ts';
-import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
+import type { Fetch } from '../src/core/github.ts';
+import { createAtlasServer, isServedHost, listen, type ErrorAnswer, type OrganizationLine, type ScanAnswer } from '../src/server.ts';
+import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE, github, openWith } from './helpers.ts';
 
 const PRELOAD = fileURLToPath(new URL('github-preload.ts', import.meta.url));
 
@@ -122,6 +123,69 @@ test('an empty field → 400 and a hint; an unreachable repository, not a GitHub
   const cli = await atlas(['scan', gitlab]);
   assert.equal(cli.code, 1);
   assert.deepEqual((await scanOf(gitlab)).body, { error: cli.stderr });
+});
+
+/** What GET /api/scan answers for an organization: its lines, parsed. */
+async function organizationLines(source: string): Promise<{ response: Response; lines: OrganizationLine[] }> {
+  const response = await fetch(new URL(`/api/scan?source=${encodeURIComponent(source)}`, base));
+  const text = await response.text();
+  return { response, lines: text.split('\n').filter(Boolean).map((line) => JSON.parse(line)) };
+}
+
+test('an organization: a JSON line at a time, the same repositories, counts and warnings as the CLI', async () => {
+  const cli = await atlas(['scan', 'https://github.com/JetBrains']);
+  const { response, lines } = await organizationLines('https://github.com/JetBrains');
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type')!, /^application\/x-ndjson/);
+  const [first, ...repositories] = lines;
+  assert.deepEqual(first, {
+    organization: { id: 'JetBrains', url: 'https://github.com/JetBrains' },
+    repositories: ['example', 'malformed', 'new', 'none'].map((name) => ({ id: `JetBrains/${name}`, url: `https://github.com/JetBrains/${name}` })),
+  });
+  const printed = repositories.map((line) => {
+    assert.ok('id' in line, JSON.stringify(line));
+    if ('error' in line) return `${line.id} · not scanned: ${line.error}`;
+    return `${line.id} · ${line.skills} ${line.skills === 1 ? 'skill' : 'skills'}`;
+  });
+  assert.deepEqual([`JetBrains · ${repositories.length} repositories`, ...printed], cli.stdout.split('\n'));
+  const warnings = repositories.flatMap((line) => ('warnings' in line ? line.warnings.map((warning) => `warning: ${line.id}: ${warning}`) : []));
+  assert.deepEqual(warnings, cli.stderr.split('\n'));
+});
+
+test('an organization, GitHub answers no more → the lines so far, then `{ error }`, last', async () => {
+  const { response, lines } = await organizationLines('https://github.com/Limited');
+  assert.equal(response.status, 200);
+  assert.deepEqual(lines.slice(1), [
+    { id: 'Limited/first', url: 'https://github.com/Limited/first', skills: 0, warnings: [] },
+    { error: 'GitHub rate limit reached; try again in a minute' },
+  ]);
+});
+
+test('an organization GitHub does not know → 400 and the CLI message', async () => {
+  const { response, body } = await scanOf('https://github.com/no-such-owner');
+  assert.equal(response.status, 400);
+  assert.deepEqual(body, { error: 'Organization not found: https://github.com/no-such-owner' });
+});
+
+test('an organization: the page gone, the server stops scanning it', async (t) => {
+  // Each commit is answered late: the page leaves while the first repository is scanned.
+  const requested: string[] = [];
+  const late: Fetch = async (url, init) => {
+    requested.push(url);
+    if (url.endsWith('/commits/main')) await new Promise((resolve) => setTimeout(resolve, 200));
+    return github(url, init);
+  };
+  const slow = createAtlasServer({ open: openWith(late) });
+  const address = await listen(slow, 0);
+  t.after(() => slow.close());
+  const leaving = new AbortController();
+  const response = await fetch(new URL(`/api/scan?source=${encodeURIComponent('https://github.com/JetBrains')}`, address), { signal: leaving.signal });
+  const reader = response.body!.getReader();
+  await reader.read(); // the organization's line
+  leaving.abort();
+  await new Promise((resolve) => setTimeout(resolve, 4 * 200 + 500)); // past what the whole scan takes
+  const commits = requested.filter((url) => url.endsWith('/commits/main'));
+  assert.deepEqual(commits, ['https://api.github.com/repos/JetBrains/example/commits/main']);
 });
 
 test('GITHUB_TOKEN works for serve as for scan: from the environment to GitHub', async (t) => {
