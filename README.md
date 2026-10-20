@@ -13,7 +13,15 @@ build-tools-bump-gradle-api — Bumps the Gradle API version that Kotlin Gradle 
 …
 ```
 
-Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests.
+Or in a local web view: a field for a repository link, its skills and their SKILL.md.
+
+```console
+$ ./skill-atlas serve
+Skill Atlas: http://localhost:3000/
+```
+
+Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests; the web view's run
+in Chromium, after `npx playwright install chromium`.
 
 - [spec/](spec/): what it does. [AGENTS.md](AGENTS.md): the definition of done.
 - [fixture/](fixture/README.md): a small repository for the tests.
