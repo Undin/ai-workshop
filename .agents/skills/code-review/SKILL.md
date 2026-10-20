@@ -1,12 +1,14 @@
 ---
 name: code-review
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side, each finding rated critical, major, normal or minor. Pass `--comment [<pr>]` (e.g. from a JetBrains Air cloud task) to post the findings as inline review comments on the GitHub pull request. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 
 - **Standards**: does the code conform to this repo's documented coding standards?
 - **Spec**: does the code faithfully implement the originating issue / spec?
+
+With `--comment`, the skill runs unattended and posts the review to the pull request (see _On CI (`--comment`)_).
 
 Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. Every finding carries a severity (see _Severity_).
 
@@ -38,7 +40,7 @@ In reports the severity is shown as a label: `🔴 Critical`, `🟠 Major`, `�
 
 ### 1. Pin the fixed point
 
-Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it.
+Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it (with `--comment`, use the pull request's base instead).
 
 Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
 
@@ -51,7 +53,7 @@ Look for the originating spec, in this order:
 1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
 2. A path the user passed as an argument.
 3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
-4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
+4. If nothing is found, ask the user where the spec is (with `--comment`, don't ask: skip the Spec axis). If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
 ### 3. Identify the standards sources
 
@@ -102,6 +104,51 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 Present the two reports under `## Standards` and `## Spec` headings, lightly cleaned: within each axis, order the findings from critical to minor and replace `[<severity>]` with its label (`🟠 Major`). Do **not** merge findings across axes or rerank one axis against the other, because the two axes are deliberately separate (see _Why two axes_).
 
 End with a one-line summary: the count per severity on each axis (e.g. `Standards: 1 🟠 Major, 3 🟡 Normal`), and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
+
+### 6. Post to the pull request (only with `--comment`)
+
+See _On CI (`--comment`)_. Without the flag, the report from step 5 is the whole output.
+
+## On CI (`--comment`)
+
+`--comment [<pr>]` is for unattended runs, such as a JetBrains Air cloud task: the task prompt passes the flag, nothing is detected from the environment. It posts the findings to the GitHub pull request as one review, each finding as an inline comment on the code it's about.
+
+**Requirements**: `gh` authenticated with a token that can write pull request reviews (`pull-requests: write`), and a checkout with enough history to find the merge-base.
+
+**Never ask.** Nobody is there to answer:
+
+- The pull request is `<pr>` if given, otherwise the one for the current branch. Read it with `gh pr view [<pr>] --json number,url,headRefOid,baseRefName`. If there's none, stop with an error; don't silently fall back to a text report.
+- The fixed point is the pull request's base: `git fetch origin <baseRefName>`, then `origin/<baseRefName>`.
+- `headRefOid` must equal `git rev-parse HEAD`; otherwise the line numbers would point at other code, so stop with an error.
+- If no spec is found in step 2, skip the Spec axis and say so in the review body.
+
+**Anchor the findings.** A finding goes inline only if its `<path>:<line>` (and `<end line>`, for a range) lies inside a hunk of `gh pr diff <number>` on the new side. Everything else, including findings with `-` as location, goes into the review body.
+
+**Post one review**, so the pull request gets one notification, not one per finding. Write `review.json` and send it with `gh api repos/{owner}/{repo}/pulls/<number>/reviews --method POST --input review.json`:
+
+```json
+{
+  "commit_id": "<headRefOid>",
+  "event": "COMMENT",
+  "body": "<the summary line from step 5, then the findings that aren't inline, under ## Standards and ## Spec>",
+  "comments": [
+    {
+      "path": "src/core/scan.ts",
+      "start_line": 40,
+      "start_side": "RIGHT",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "🟠 **Major** · Standards - <one-line finding>\n\n<detail>"
+    }
+  ]
+}
+```
+
+Leave out `start_line` and `start_side` for a single line. Every comment body starts with the severity label and the axis. The event is always `COMMENT`: the review informs, a human decides.
+
+**If GitHub rejects the review** (usually `422` for a line outside the diff), post it again with every finding in the body and no `comments`.
+
+Finally print the report from step 5 and the review's URL (`html_url` in the response) in the task output.
 
 ## Why two axes
 
