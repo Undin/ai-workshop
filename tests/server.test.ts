@@ -33,7 +33,9 @@ type Scanned = {
 
 async function get(path: string, init?: RequestInit): Promise<{ response: Response; body: any }> {
   const response = await fetch(new URL(path, base), init);
-  return { response, body: response.headers.get('content-type')?.startsWith('application/json') ? await response.json() : await response.text() };
+  // A HEAD answer has no body.
+  const json = response.headers.get('content-type')?.startsWith('application/json') && init?.method !== 'HEAD';
+  return { response, body: json ? await response.json() : await response.text() };
 }
 
 const scanOf = (source: string) => get(`/api/scan?source=${encodeURIComponent(source)}`);
