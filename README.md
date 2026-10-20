@@ -40,9 +40,10 @@ repositories of an organization an hour. `npm test` runs the tests; the web view
 and compares the output with [e2e/expected/](e2e/expected/); `UPDATE_EXPECTED=1 npm run e2e`
 rewrites it after adding a repository or moving a pin.
 
-`npm run demo <name>` records a feature of the web view, [demos/](demos/)`<name>.demo.ts`, with a
-visible pointer, into `demos/out/<name>.mp4` and `.gif` (needs `ffmpeg`); `-- --publish <pr>` uploads both
-to the `demos` pre-release and prints the Markdown for the pull request's description.
+`npm run demo [-- <name>]` records a feature of the web view, [demos/](demos/)`<name>.demo.ts`, on a
+real repository with a visible pointer, into `demos/out/<name>.webm`, for a pull request's
+description; like `npm run e2e`, it needs the network and `GITHUB_TOKEN`. Waits where nothing happens
+play faster, `×8` in the corner meanwhile (`faster()` in [demos/demo.ts](demos/demo.ts), with `ffmpeg`).
 
 - [spec/](spec/): what it does. [AGENTS.md](AGENTS.md): the definition of done.
 - [fixture/](fixture/README.md): a small repository for the tests.
