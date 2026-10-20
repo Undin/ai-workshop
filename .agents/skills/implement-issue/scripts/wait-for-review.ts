@@ -10,7 +10,7 @@ import { promisify } from 'node:util';
 const QUIET_MINUTES = 30;
 /** How often to ask GitHub (`--interval`). */
 const INTERVAL_SECONDS = 60;
-const USAGE = 'Usage: wait-for-review.ts <pr> [--quiet <minutes>] [--interval <seconds>]';
+const USAGE = `Usage: wait-for-review.ts <pr> [--quiet <minutes: ${QUIET_MINUTES}>] [--interval <seconds: ${INTERVAL_SECONDS}>]`;
 /** Ends every reply the skill posts. */
 const REPLY = '<!-- implement-issue -->';
 /** End status comments: neither review nor reply. */

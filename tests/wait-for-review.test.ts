@@ -194,7 +194,7 @@ test('gh fails: its error, exit 1, nothing on stdout', (t) => {
 });
 
 test('bad arguments: what is wrong and the usage, exit 1, GitHub never asked', (t) => {
-  const usage = 'Usage: wait-for-review.ts <pr> [--quiet <minutes>] [--interval <seconds>]';
+  const usage = 'Usage: wait-for-review.ts <pr> [--quiet <minutes: 30>] [--interval <seconds: 60>]';
   const cases: [string[], string][] = [
     [[], 'No pull request number'],
     [['seven'], 'Not a pull request number: seven'],
