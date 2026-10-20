@@ -12,7 +12,9 @@ Integration tests for every case in the spec.
 4. **Test** locally: `npm run typecheck`, `npm test`, and `npm run e2e` when the change touches
    scanning; fix until green
 5. **Pull request**: push, `gh pr create` against `main` with what and why, then wait for CI
-   (`gh pr checks --watch`); a red check is fixed with a new commit on the branch, until green
+   (`gh pr checks --watch`); a red check is fixed with a new commit on the branch, until green.
+   A new feature of the web view gets a demo: `demos/<name>.demo.ts` showing exactly it, then
+   `npm run demo <name> -- --publish <pr>` and its Markdown in the description (`gh pr edit --body`)
 ## Definition of done
 - All tests pass locally
 - The pull request's CI is green
@@ -20,4 +22,5 @@ Integration tests for every case in the spec.
 ## Commands
 - `npm ci`, then `npx playwright install chromium`: first, in a fresh checkout
 - `npm test`: the tests; `npm run test:unit` without a browser, `npm run test:web` the web view in Chromium
+- `npm run demo <name>`: a demo video of a feature ([demos/](demos/)), `ffmpeg` needed
 - `npm run e2e`: the real CLI on real repositories ([e2e/](e2e/)); needs the network and `GITHUB_TOKEN`
