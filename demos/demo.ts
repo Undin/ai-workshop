@@ -1,7 +1,7 @@
-// What every demo shares: the recording, a visible pointer, pauses a viewer can follow, and the
-// waits where nothing happens played faster.
+// What every demo shares: the recording, a visible pointer, pauses a viewer can follow, the
+// waits where nothing happens played faster, and screenshots of its key points.
 import { execFileSync } from 'node:child_process';
-import { renameSync } from 'node:fs';
+import { mkdirSync, renameSync, rmSync } from 'node:fs';
 import { test as base, type Locator, type Page } from '@playwright/test';
 
 export const VIDEOS = new URL('out/', import.meta.url).pathname;
@@ -9,16 +9,18 @@ export const VIDEOS = new URL('out/', import.meta.url).pathname;
 /** A part of the video to play `factor` times faster: from `start` to `end`, seconds into it. */
 type Faster = { start: number; end: number; factor: number };
 
-/** For each recorded page: when its video started, and its parts to play faster. */
-const recordings = new WeakMap<Page, { started: number; faster: Faster[] }>();
+/** For each recorded page: its demo, when its video started, its parts to play faster, its key points so far. */
+const recordings = new WeakMap<Page, { name: string; started: number; faster: Faster[]; keyPoints: number }>();
 
 /** A page recorded into demos/out/<the demo's file name>.webm, its pointer actions shown. */
 export const test = base.extend<{ page: Page }>({
   page: async ({ page }, use, info) => {
     const name = info.file.split('/').at(-1)!.replace(/\.demo\.ts$/, '');
     const video = `${VIDEOS}${name}.webm`;
+    // This run's key points only: none left from an earlier one.
+    rmSync(keyPoints(name), { recursive: true, force: true });
     await page.screencast.start({ path: video, size: page.viewportSize()! });
-    const recording = { started: Date.now(), faster: [] };
+    const recording = { name, started: Date.now(), faster: [], keyPoints: 0 };
     recordings.set(page, recording);
     await page.screencast.showActions({
       cursor: 'pointer',
@@ -47,6 +49,17 @@ export async function type(field: Locator, text: string, delay = 120) {
   await field.click();
   await field.clear();
   await field.pressSequentially(text, { delay });
+}
+
+/** Where the screenshots of a demo's key points go: demos/<name>/. */
+const keyPoints = (name: string) => new URL(`${name}/`, import.meta.url).pathname;
+
+/** A key point of the demo: its screenshot, demos/<demo>/<nn>-<name>.png, numbered in order. */
+export async function keyPoint(page: Page, name: string) {
+  const recording = recordings.get(page)!;
+  const directory = keyPoints(recording.name);
+  mkdirSync(directory, { recursive: true });
+  await page.screenshot({ path: `${directory}${String(++recording.keyPoints).padStart(2, '0')}-${name}.png` });
 }
 
 /**
