@@ -1,0 +1,53 @@
+# The demos of the web view (demos/*.demo.ts) on every pull request, apart from CI (ci.yml): each one
+# recorded on real repositories, its video an artifact of its own, `<name>.webm`, to link from the pull
+# request's description. A demo asserts what it shows: a red run is a demo or a feature that broke.
+name: Demos
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: demos-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  # The demos: their names, for the job below.
+  demo-list:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      names: ${{ steps.list.outputs.names }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: list
+        run: echo "names=$(ls demos/*.demo.ts | xargs -n1 basename | sed 's/\.demo\.ts$//' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+  # Each demo, on real repositories as `npm run demo` does, its video an artifact of its own,
+  # `<name>.webm`, to link from the pull request's description.
+  demo:
+    needs: demo-list
+    if: needs.demo-list.outputs.names != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        name: ${{ fromJSON(needs.demo-list.outputs.names) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # For the waits a demo plays faster (faster() in demos/demo.ts).
+      - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
+      - run: npm run demo -- ${{ matrix.name }}.demo.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          path: demos/out/${{ matrix.name }}.webm
+          archive: false
+          if-no-files-found: error
+          retention-days: 90

@@ -1,6 +1,5 @@
 # CI for your Skill Atlas repository: the typecheck, the tests (in a browser too) and the CLI itself, on every push
-# and pull request, on a clean machine; on a pull request, the demos too, their videos as artifacts.
-# A pull request is ready when this is green.
+# and pull request, on a clean machine. A pull request is ready when this is green.
 name: CI
 on:
   push:
@@ -55,45 +54,3 @@ jobs:
       - run: npm run e2e
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  # The demos of the web view (demos/*.demo.ts), on a pull request: their names, for the job below.
-  demo-list:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      names: ${{ steps.list.outputs.names }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: list
-        run: echo "names=$(ls demos/*.demo.ts | xargs -n1 basename | sed 's/\.demo\.ts$//' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
-  # Each demo, on real repositories as `npm run demo` does, its video an artifact of its own,
-  # `<name>.webm`, to link from the pull request's description.
-  demo:
-    needs: demo-list
-    if: needs.demo-list.outputs.names != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        name: ${{ fromJSON(needs.demo-list.outputs.names) }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      # For the waits a demo plays faster (faster() in demos/demo.ts).
-      - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
-      - run: npm run demo -- ${{ matrix.name }}.demo.ts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          path: demos/out/${{ matrix.name }}.webm
-          archive: false
-          if-no-files-found: error
-          retention-days: 90
