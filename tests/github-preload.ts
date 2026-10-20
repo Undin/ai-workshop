@@ -3,11 +3,10 @@
 import { appendFileSync } from 'node:fs';
 import { github } from './helpers.ts';
 
-const local = globalThis.fetch;
+// The CLI only fetches GitHub: the test asks the server from its own process.
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input);
-  if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) return local(input, init);
-  const headers = (init?.headers ?? {}) as Record<string, string>;
-  appendFileSync(process.env.SKILL_ATLAS_SEEN!, `${headers.Authorization ?? 'none'}\n`);
-  return github(url, { headers });
+  const headers = new Headers(init?.headers);
+  appendFileSync(process.env.SKILL_ATLAS_SEEN!, `${headers.get('authorization') ?? 'none'}\n`);
+  return github(url, { headers: Object.fromEntries(headers) });
 }) as typeof fetch;

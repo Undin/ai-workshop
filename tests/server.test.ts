@@ -1,14 +1,14 @@
 // The decisions in spec/web.md that the server makes: the page, and the scan as JSON, the same as
 // what the CLI prints. What the page does with it is in tests/web/web.spec.ts.
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn, spawnSync, type SpawnOptions } from 'node:child_process';
 import { once } from 'node:events';
 import { request } from 'node:http';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { after, test } from 'node:test';
+import { after, test, type TestContext } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
 import { createBrowserBackend } from '../src/browser.ts';
 import { run } from '../src/commands.ts';
@@ -16,6 +16,34 @@ import { isServedHost, listen, type ErrorAnswer, type ScanAnswer } from '../src/
 import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
 
 const PRELOAD = fileURLToPath(new URL('github-preload.ts', import.meta.url));
+
+/**
+ * `node <args>` as a real `skill-atlas serve`: its printed address, once it listens. Killed after
+ * the test, before the test's own cleanup; fails, not hangs, if it exits without an address.
+ */
+async function serveCli(t: TestContext, args: string[], options: SpawnOptions = {}): Promise<string> {
+  const served = spawn(process.execPath, args, { ...options, stdio: ['ignore', 'pipe', 'inherit'] });
+  t.after(() => served.kill());
+  const printed = once(served.stdout!, 'data').then(([line]: Buffer[]) => line.toString());
+  const exited = once(served, 'exit').then(([code]) => `exited with ${code} before printing its address`);
+  const line = await Promise.race([printed, exited]);
+  const address = /^Skill Atlas: (http:\/\/127\.0\.0\.1:\d+\/)\n$/.exec(line)?.[1];
+  assert.ok(address, line);
+  return address;
+}
+
+/** `skill-atlas serve <args>` in-process, with a fake server: the exit code, the ports served, the errors. */
+async function serveWith(args: string[]) {
+  const served: number[] = [];
+  const errors: string[] = [];
+  const code = await run(['serve', ...args], {
+    open: () => Promise.reject(new Error('not opened')),
+    print: () => {},
+    error: (text) => errors.push(text),
+    serve: async (port) => (served.push(port), new URL('http://127.0.0.1/')),
+  });
+  return [code, served, errors];
+}
 
 const server = atlasServer();
 const base = await listen(server, 0);
@@ -99,10 +127,9 @@ test('an empty field → 400 and a hint; an unreachable repository, not a GitHub
 test('GITHUB_TOKEN works for serve as for scan: from the environment to GitHub', async (t) => {
   // The real CLI, with GitHub answering from a recording and telling which token it got.
   const dir = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const seen = (name: string) => readFileSync(join(dir, name), 'utf8').trim().split('\n');
   const env = (name: string) => ({ ...process.env, GITHUB_TOKEN: 'secret', SKILL_ATLAS_SEEN: join(dir, name) });
-  const node = [...['--import', PRELOAD], CLI];
+  const node = ['--import', PRELOAD, CLI];
   const example = 'https://github.com/JetBrains/example';
 
   const scanned = spawnSync(process.execPath, [...node, 'scan', example], { env: env('scan'), encoding: 'utf8' });
@@ -110,10 +137,8 @@ test('GITHUB_TOKEN works for serve as for scan: from the environment to GitHub',
   // The API requests carry it; raw.githubusercontent.com is asked without.
   assert.ok(seen('scan').includes('Bearer secret'), seen('scan').join(', '));
 
-  const served = spawn(process.execPath, [...node, 'serve', '--port', '0'], { env: env('serve'), stdio: ['ignore', 'pipe', 'inherit'] });
-  t.after(() => served.kill());
-  const [line] = (await once(served.stdout, 'data')) as [Buffer];
-  const address = /^Skill Atlas: (\S+)\n$/.exec(line.toString())![1];
+  const address = await serveCli(t, [...node, 'serve', '--port', '0'], { env: env('serve') });
+  t.after(() => rmSync(dir, { recursive: true, force: true })); // after the server is killed
   const answer = await fetch(new URL(`/api/scan?source=${encodeURIComponent(example)}`, address));
   assert.equal(answer.status, 200);
   assert.deepEqual(seen('serve'), seen('scan'));
@@ -162,12 +187,8 @@ test('the Host check: the name and the port, which browsers leave out for 80', (
 
 test('skill-atlas serve: prints its address, serves the page, stores nothing', async (t) => {
   const cwd = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
-  t.after(() => rmSync(cwd, { recursive: true, force: true }));
-  const served = spawn(process.execPath, [CLI, 'serve', '--port', '0'], { cwd, stdio: ['ignore', 'pipe', 'inherit'] });
-  t.after(() => served.kill());
-  const [line] = (await once(served.stdout, 'data')) as [Buffer];
-  const address = /^Skill Atlas: (http:\/\/127\.0\.0\.1:\d+\/)\n$/.exec(line.toString())?.[1];
-  assert.ok(address, line.toString());
+  const address = await serveCli(t, [CLI, 'serve', '--port', '0'], { cwd });
+  t.after(() => rmSync(cwd, { recursive: true, force: true })); // after the server is killed
   const scanned = await (await fetch(`${address}api/scan?source=${encodeURIComponent(FIXTURE)}`)).json();
   assert.equal((scanned as ScanAnswer).repository.id, 'fixture');
   assert.deepEqual(readdirSync(cwd), []);
@@ -179,15 +200,17 @@ test('skill-atlas serve: a bad port → a clear message, exit code 1', async () 
   assert.equal(bad.stderr, 'Not a port: many\nUsage: skill-atlas serve [--port <port>]\n');
   // Digits only, 0 to 65535; 0 picks a free port.
   for (const port of ['', '0x1F90', '1e3', '-1', '65536', '80.5', ' 80']) {
-    const served: number[] = [];
-    const errors: string[] = [];
-    const code = await run(['serve', '--port', port], {
-      open: () => Promise.reject(new Error('not opened')),
-      print: () => {},
-      error: (text) => errors.push(text),
-      serve: async (number) => (served.push(number), new URL('http://127.0.0.1/')),
-    });
-    assert.deepEqual([code, served, errors], [1, [], [`Not a port: ${port}\nUsage: skill-atlas serve [--port <port>]`]], port);
+    assert.deepEqual(await serveWith(['--port', port]), [1, [], [`Not a port: ${port}\nUsage: skill-atlas serve [--port <port>]`]], port);
+  }
+  for (const args of [['--port'], ['80'], ['--port', '80', '81'], ['--host', '80']]) {
+    assert.deepEqual(await serveWith(args), [1, [], ['Usage: skill-atlas serve [--port <port>]']], args.join(' '));
+  }
+});
+
+test('skill-atlas serve: port 3000 by default; any port from 0 to 65535', async () => {
+  assert.deepEqual(await serveWith([]), [0, [3000], []]);
+  for (const [port, number] of [['0', 0], ['1', 1], ['080', 80], ['65535', 65535]] as const) {
+    assert.deepEqual(await serveWith(['--port', port]), [0, [number], []], port);
   }
 });
 
