@@ -2,7 +2,6 @@
 // ./fixture, and GitHub repositories answered in tests/helpers.ts and tests/serve-test.ts.
 // In tests/web, not e2e/: these never reach the network; e2e/ is the CLI on real repositories.
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { atlas, EXAMPLE_COMMIT, FIXTURE } from '../helpers.ts';
 
@@ -71,7 +70,7 @@ test('the first skill is chosen at first', async ({ page }) => {
   await expect(skills(page).first()).toHaveAttribute('aria-current', 'true');
 });
 
-test("a chosen skill's SKILL.md: the front matter as a table, the body as Markdown, its link", async ({ page }) => {
+test("a chosen skill's SKILL.md: the front matter as a table, the body as Markdown, its path", async ({ page }) => {
   await scan(page, FIXTURE);
   await skills(page).filter({ hasText: /^commits/ }).click();
   await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('commits');
@@ -84,10 +83,9 @@ test("a chosen skill's SKILL.md: the front matter as a table, the body as Markdo
   await expect(article(page).getByRole('heading', { level: 1, name: 'Commits' })).toBeVisible();
   await expect(article(page).locator('code')).toHaveText('editor: keep the caret after undo');
   await expect(article(page).getByText('also in .github/skills/commits/SKILL.md')).toBeVisible();
-  await expect(article(page).getByRole('link', { name: '.claude/skills/commits/SKILL.md' })).toHaveAttribute(
-    'href',
-    `${pathToFileURL(FIXTURE).href}/.claude/skills/commits/SKILL.md`,
-  );
+  // In a directory: the file's path as text, not a file:// link a web page cannot open.
+  await expect(article(page).locator('#skill-location')).toHaveText(join(FIXTURE, '.claude/skills/commits/SKILL.md'));
+  await expect(article(page).locator('#skill-location').getByRole('link')).toHaveCount(0);
 });
 
 test('malformed front matter: the skill is still shown, under its directory name', async ({ page }) => {
@@ -129,7 +127,7 @@ test('no skills → `No skills found`', async ({ page }) => {
   await expect(article(page)).toBeHidden();
 });
 
-test('an empty field, an unreachable repository → the clear message of the CLI', async ({ page }) => {
+test('an empty field → a hint; an unreachable repository, not a GitHub URL → the clear message of the CLI', async ({ page }) => {
   await scan(page, '');
   await expect(page.getByRole('status')).toHaveText('Enter a GitHub repository URL or a directory');
   const missing = join(FIXTURE, 'no-such-directory');
@@ -138,6 +136,8 @@ test('an empty field, an unreachable repository → the clear message of the CLI
   await expect(page.getByRole('navigation')).toBeHidden();
   await scan(page, 'https://github.com/JetBrains/not-answered');
   await expect(page.getByRole('status')).toHaveText(/^Cannot reach GitHub: /);
+  await scan(page, 'https://gitlab.com/JetBrains/kotlin');
+  await expect(page.getByRole('status')).toHaveText('Not a GitHub URL or a readable directory: https://gitlab.com/JetBrains/kotlin');
 });
 
 test('the address keeps the link: a reload or a shared link scans it again', async ({ page }) => {

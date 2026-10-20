@@ -11,12 +11,13 @@ reach it through a name of its own resolved to `127.0.0.1` (DNS rebinding).
   the description's *first sentence* in at most *two lines* (cut with `…`, whole on hover),
   `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
 - A chosen skill's **SKILL.md**: the front matter as a table, the body as *Markdown*, and its link
-  (on GitHub at the *scanned commit*); the first skill is chosen at first
+  on GitHub at the *scanned commit*; in a directory, the file's path as text (a web page cannot
+  open a `file://` link); the first skill is chosen at first
 - The SKILL.md is *untrusted*: rendered HTML is sanitized, scripts never run, remote images
   are not loaded (they would tell their server who opened it)
 - The warnings, as the CLI prints them
-- No skills → `No skills found`; an empty field, an unreachable repository or not a GitHub URL
-  → the same clear message as the CLI
+- No skills → `No skills found`; an empty field → `Enter a GitHub repository URL or a directory`;
+  an unreachable repository or not a GitHub URL → the same clear message as the CLI
 ## API
 - `GET /`: the page
 - `GET /api/scan?source=<link>`; not `HEAD`, which would scan for nothing → `{ repository, skills, warnings }`; each skill has its `link`,
