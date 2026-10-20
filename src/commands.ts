@@ -16,11 +16,16 @@ export type Context = {
 
 const DEFAULT_PORT = 3000;
 
-const usage = `Usage: skill-atlas <command>
-
-  scan <GitHub URL | directory>   find every SKILL.md in a repository and print it
-  serve [--port <port>]           open the web view on http://127.0.0.1:${DEFAULT_PORT}
-  help                            show this help`;
+/** The commands this client can run: `serve` only where there is a server. */
+function usage({ serve }: Context): string {
+  return [
+    'Usage: skill-atlas <command>',
+    '',
+    '  scan <GitHub URL | directory>   find every SKILL.md in a repository and print it',
+    ...(serve ? [`  serve [--port <port>]           open the web view on http://127.0.0.1:${DEFAULT_PORT}`] : []),
+    '  help                            show this help',
+  ].join('\n');
+}
 
 /** Runs one command; returns its exit code. */
 export async function run(args: string[], context: Context): Promise<number> {
@@ -28,8 +33,8 @@ export async function run(args: string[], context: Context): Promise<number> {
   try {
     if (command === 'scan') await scanCommand(rest, context);
     else if (command === 'serve' && context.serve) await serveCommand(rest, context.serve, context);
-    else if (command === 'help') context.print(usage);
-    else throw new AtlasError(`Unknown command: ${command}\n\n${usage}`);
+    else if (command === 'help') context.print(usage(context));
+    else throw new AtlasError(`Unknown command: ${command}\n\n${usage(context)}`);
     return 0;
   } catch (error) {
     if (!(error instanceof AtlasError)) throw error;
@@ -46,10 +51,11 @@ async function scanCommand(args: string[], context: Context) {
 }
 
 async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, { print }: Context) {
-  const usage = 'Usage: skill-atlas serve [--port <port>]';
-  if (args.length !== 0 && (args.length !== 2 || args[0] !== '--port')) throw new AtlasError(usage);
-  const port = args.length ? Number(args[1]) : DEFAULT_PORT;
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new AtlasError(`Not a port: ${args[1]}\n${usage}`);
+  const serveUsage = 'Usage: skill-atlas serve [--port <port>]';
+  if (args.length !== 0 && (args.length !== 2 || args[0] !== '--port')) throw new AtlasError(serveUsage);
+  // Digits only: Number() would also take '', 0x1F90 and 1e3.
+  const port = args.length ? (/^\d+$/.test(args[1]) ? Number(args[1]) : NaN) : DEFAULT_PORT;
+  if (!(port >= 0 && port <= 65535)) throw new AtlasError(`Not a port: ${args[1]}\n${serveUsage}`);
   print(`Skill Atlas: ${(await serve(port)).href}`);
 }
 

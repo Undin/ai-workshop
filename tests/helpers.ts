@@ -1,6 +1,7 @@
 // Runs the commands the way the CLI does, with GitHub answering from EXAMPLE below.
 import { fileURLToPath } from 'node:url';
 import { run } from '../src/commands.ts';
+import type { Fetch } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { openSource } from '../src/open.ts';
 import { createAtlasServer } from '../src/server.ts';
@@ -27,13 +28,18 @@ export const EXAMPLE: Recording = {
 
 export const github = replay(EXAMPLE);
 
+/** What the user asked to scan, opened the way the CLI does, with GitHub answering from `fetch`. */
+export function openWith(fetch: Fetch) {
+  // With a token, through code search, as EXAMPLE answers it.
+  return (input: string) => openSource(input, { fetch, token: 'test' });
+}
+
 /** `skill-atlas <args>`, as the CLI runs it, with GitHub answering from EXAMPLE. */
 export async function atlas(args: string[]) {
   const stdout: string[] = [];
   const stderr: string[] = [];
   const code = await run(args, {
-    // With a token, through code search, as EXAMPLE answers it.
-    open: (input) => openSource(input, { fetch: github, token: 'test' }),
+    open: openWith(github),
     print: (text) => stdout.push(text),
     error: (text) => stderr.push(text),
   });
@@ -42,5 +48,5 @@ export async function atlas(args: string[]) {
 
 /** The web view, as `skill-atlas serve` runs it, with GitHub answering from EXAMPLE. */
 export function atlasServer() {
-  return createAtlasServer({ open: (input) => openSource(input, { fetch: github, token: 'test' }) });
+  return createAtlasServer({ open: openWith(github) });
 }

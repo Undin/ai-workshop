@@ -77,7 +77,7 @@ function render({ repository, skills, warnings }) {
       summary.title = skill.summary;
       button.append(summary);
     }
-    if (skill.copies.length) button.append(element('span', `also in ${skill.copies.join(', ')}`, 'copies'));
+    if (skill.copies.length) button.append(element('span', alsoIn(skill), 'copies'));
     button.addEventListener('click', () => choose(skill, button));
     const item = element('li', '');
     item.append(button);
@@ -105,7 +105,7 @@ function choose(skill, button) {
     link.rel = 'noopener noreferrer';
     $('#skill-location').replaceChildren(link);
   }
-  $('#skill-copies').textContent = skill.copies.length ? `also in ${skill.copies.join(', ')}` : '';
+  $('#skill-copies').textContent = skill.copies.length ? alsoIn(skill) : '';
   $('#skill-copies').hidden = !skill.copies.length;
 
   const rows = Object.entries({ name: skill.name, description: skill.description, ...skill.properties }).map(([key, value]) => {
@@ -115,6 +115,10 @@ function choose(skill, button) {
   });
   $('#front-matter tbody').replaceChildren(...rows);
   $('#skill-body').innerHTML = DOMPurify.sanitize(marked.parse(skill.body, { async: false }));
+}
+
+function alsoIn(skill) {
+  return `also in ${skill.copies.join(', ')}`;
 }
 
 function element(tag, text, className) {
