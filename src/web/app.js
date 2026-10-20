@@ -72,7 +72,11 @@ function render({ repository, skills, warnings }) {
     const button = element('button', '');
     button.type = 'button';
     button.append(element('span', skill.name, 'name'));
-    if (skill.summary) button.append(element('span', skill.summary, 'summary'));
+    if (skill.summary) {
+      const summary = element('span', skill.summary, 'summary');
+      summary.title = skill.summary;
+      button.append(summary);
+    }
     if (skill.copies.length) button.append(element('span', `also in ${skill.copies.join(', ')}`, 'copies'));
     button.addEventListener('click', () => choose(skill, button));
     const item = element('li', '');

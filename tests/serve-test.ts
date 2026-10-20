@@ -41,6 +41,10 @@ const answers = replay(
       ].join('\n'),
     }),
     ...repository('JetBrains/empty', {}),
+    // A first sentence too long for two lines of the list.
+    ...repository('JetBrains/long', {
+      '.claude/skills/long/SKILL.md': `---\nname: long\ndescription: ${'Explains every step of a very long procedure, '.repeat(8)}in detail.\n---\n# Long\n`,
+    }),
   },
   github,
 );

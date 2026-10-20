@@ -6,7 +6,8 @@ scan as the [command line](cli.md). Only on this machine (`127.0.0.1`): it reads
 - A **field** for a repository link (a GitHub URL, or a directory) and a *Scan* button; Enter scans too
 - The address keeps it, `?source=<link>`: a reload or a shared link scans it again
 - The repository, `JetBrains/kotlin · 6 skills`, and its **skills**, sorted by **name**: the name,
-  the description's *first sentence*, `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
+  the description's *first sentence* in at most *two lines* (cut with `…`, whole on hover),
+  `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
 - A chosen skill's **SKILL.md**: the front matter as a table, the body as *Markdown*, and its link
   (on GitHub at the *scanned commit*); the first skill is chosen at first
 - The SKILL.md is *untrusted*: rendered HTML is sanitized, scripts never run
