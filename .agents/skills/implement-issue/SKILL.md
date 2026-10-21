@@ -1,6 +1,6 @@
 ---
 name: implement-issue
-description: "Implement a GitHub issue end to end the way AGENTS.md defines done: the spec first (asking the user whatever the issue leaves unclear), then the code with an integration test for every spec case, local green, a pull request with green CI (the Demos workflow included: it records every demo), for a new or changed feature of the web view its demo's screenshots from that run committed and shown in the pull request with a link to its video, and every review comment on it addressed; it announces the start of the work in a comment on the issue (or the pull request). Use when the user gives an issue number or URL to implement, or asks to address the comments on the pull request for one (`--pr <number>`)."
+description: "Implement a GitHub issue end to end the way AGENTS.md defines done: the spec first (asking the user whatever the issue leaves unclear), then the code with an integration test for every spec case, local green, a pull request with green CI (the Demos workflow included: it records every demo), for a new or changed feature of the web view its demo's screenshots from that run committed and shown in the pull request with a link to its video, and every review comment on it addressed; with no one at the session (an automation), it asks its questions in Slack; it announces the start of the work in a comment on the issue (or the pull request). Use when the user gives an issue number or URL to implement, or asks to address the comments on the pull request for one (`--pr <number>`)."
 ---
 
 Takes `<issue number | issue URL>` and drives it through the workflow in
@@ -54,11 +54,13 @@ The spec is the contract; the code and the tests follow it.
 2. List every **case** the change adds or alters (an input and what the CLI prints for it, on
    stdout, stderr and the exit code). Each case becomes an integration test.
 3. Collect everything the issue leaves open: behaviour on edge cases, the exact output format,
-   warnings vs errors, local directory vs GitHub, what is out of scope. **Ask the user** in one
-   round of structured questions, each with concrete options and your recommendation. Don't guess
-   an answer the user should give; ask again if an answer opens a new question.
+   warnings vs errors, local directory vs GitHub, what is out of scope. **Ask the user** (see
+   _Asking the user_) in one round of structured questions, each with concrete options and your
+   recommendation. Don't guess an answer the user should give; ask again if an answer opens a new
+   question.
 4. Show the user the spec draft, the case list and the implementation approach (which files
-   change and how), and **agree before changing any code**.
+   change and how), and **agree before changing any code**; in Slack, in the thread of the
+   questions.
 
 ### 3. Branch
 
@@ -107,7 +109,7 @@ npm run e2e   # when the change touches scanning; needs the network and GITHUB_T
 ```
 
 Fix with new commits and re-run until all are green. Never weaken, skip or delete a test to get
-there; if a test looks wrong, the spec decides, and if the spec doesn't, ask the user. Then check
+there; if a test looks wrong, the spec decides, and if the spec doesn't, ask the user (see _Asking the user_). Then check
 again that each spec case (from step 2, or with `--pr` from the pull request body) has its test.
 
 ### 6. Pull request and CI
@@ -242,7 +244,8 @@ For each unanswered one:
 
 - **Clear and right**: fix it, keeping the spec, the code and the tests in sync (a behaviour
   change is a spec change and a test change).
-- **Unclear, or you disagree, or it changes the agreed spec**: ask the user before acting.
+- **Unclear, or you disagree, or it changes the agreed spec**: ask the user before acting (see
+  _Asking the user_).
 - Reply with what was done, or why not, ending with the marker:
   - inline comment, in its thread:
     `gh api repos/{owner}/{repo}/pulls/<pr>/comments/<id>/replies -f body='…'`;
@@ -269,6 +272,49 @@ and anything still open for the user.
 
 With `--pr`, edit the pull request's status comment:
 `🛠️ Done addressing the review comments: <how many>; CI <green | red>.`
+
+## Asking the user
+
+With someone at the session, ask there, with the tool for structured questions where there is one.
+With no one at it, an automation (no person started this run, or there is no way to ask in the
+session), ask in Slack: [scripts/ask-slack.ts](scripts/ask-slack.ts) posts the question to the
+channel `SLACK_CHANNEL` (its ID, `C…`, not its name) as the bot of `SLACK_BOT_TOKEN`, and waits for
+an answer in its thread:
+
+```bash
+node .agents/skills/implement-issue/scripts/ask-slack.ts [--thread <ts>] [--wait <minutes>] [--interval <seconds>] <<'QUESTION'
+<the question>
+QUESTION
+```
+
+The question, in Slack's markdown (`*bold*`, `_italic_`): what it is about first, with the issue or
+pull request link, then each point numbered, its options lettered and your recommendation marked,
+then how to answer: in the thread, a letter per point or free text. Every point of a round in one
+message.
+
+It reads the thread after each `--interval` (`INTERVAL_SECONDS` in the script: 30), until someone
+answers, or `--wait` minutes (`WAIT_MINUTES`: 60) pass:
+
+- **exit 0**: stdout is `{ "channel", "thread", "question", "url", "answers": [{ "author", "text", "ts" }] }`:
+  `question` is the message posted, `url` its link, `answers` every message in the thread after
+  it, oldest first, by anyone who isn't a bot;
+- **exit 2**: no answer in the wait: the same JSON, `"answers": []`;
+- **exit 1**: an error that doesn't pass (no `SLACK_BOT_TOKEN` or `SLACK_CHANNEL`, Slack refused), on
+  stderr. A read that fails for a while (Slack's rate limit, with its `Retry-After`, or a server
+  error, the network) is no error: tried again until the wait ends, a line on stderr each time.
+
+Answers come as people write them (`B`, `2`, `the first one`, a sentence): read what they mean. One
+that leaves a point open, or opens a new question: ask again in the same thread, `--thread
+<thread>`, which reads only what comes after the follow-up; so does every later message of the same
+discussion, the agreement of Process step 2.4 included.
+
+Where a command can't run for 60 minutes (a tool's timeout), run it with `--wait 9`, then, while it
+exits 2, wait on the same question without posting it again, `--thread <thread> --after <question>
+--wait 9`, until 60 minutes have passed in all. No answer in 60 minutes: stop, and edit the status
+comment, if there is one: `🛠️ Stopped: waiting for an answer in Slack: <url>.`
+
+Exit 1: there is no one to ask; stop, saying what is wrong (a missing `SLACK_BOT_TOKEN` or
+`SLACK_CHANNEL`, Slack's error), rather than guess.
 
 ## Status comments
 
