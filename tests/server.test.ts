@@ -371,8 +371,7 @@ test('skill-atlas serve: a bad port → a clear message, exit code 1', async () 
   assert.equal(bad.status, 1);
   assert.equal(bad.stderr, `Not a port: many\n${SERVE_USAGE}\n`);
   // Digits only, 0 to 65535; 0 picks a free port.
-  // The word after --port is the port, even --no-cache.
-  for (const port of ['', '0x1F90', '1e3', '-1', '65536', '80.5', ' 80', '--no-cache']) {
+  for (const port of ['', '0x1F90', '1e3', '-1', '65536', '80.5', ' 80']) {
     const expected = { code: 1, ports: [], cached: [], stderr: `Not a port: ${port}\n${SERVE_USAGE}` };
     assert.deepEqual(await serveWith(['--port', port]), expected, port);
   }
@@ -382,7 +381,7 @@ test('skill-atlas serve: other arguments → the usage, exit code 1', async () =
   // The shape is checked before the port: a bad port with extra arguments gets the usage too.
   for (const args of [
     ['--port'], ['80'], ['--port', '80', '81'], ['--port', 'many', '81'], ['--port=80'], ['--host', '80'],
-    ['--no-cache', '--no-cache'], ['--port', '80', '--port', '81'], ['--cache'],
+    ['--no-cache', '--no-cache'], ['--port', '80', '--port', '81'], ['--port', '--no-cache'], ['--cache'],
   ]) {
     const expected = { code: 1, ports: [], cached: [], stderr: SERVE_USAGE };
     assert.deepEqual(await serveWith(args), expected, args.join(' '));
@@ -409,7 +408,9 @@ test('the browser terminal has no server and no cache: its help leaves `serve` a
   assert.match(help, /^  scan /m);
   assert.doesNotMatch(help, /serve|no-cache/);
   assert.match(await terminal.run('serve'), /^Unknown command: serve\n/);
-  assert.equal(await terminal.run('scan --no-cache https://github.com/JetBrains/example'), 'Usage: skill-atlas scan <GitHub URL | directory>');
+  for (const line of ['scan --no-cache https://github.com/JetBrains/example', 'scan --no-cache']) {
+    assert.equal(await terminal.run(line), 'Usage: skill-atlas scan <GitHub URL | directory>', line);
+  }
   // The Node CLI lists them.
   const cli = spawnSync(process.execPath, [CLI, 'help'], { encoding: 'utf8' }).stdout;
   assert.match(cli, /^  serve \[--port <port>\]/m);

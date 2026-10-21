@@ -51,11 +51,9 @@ export async function run(args: string[], context: Context): Promise<number> {
 }
 
 async function scanCommand(args: string[], context: Context) {
-  // `--no-cache` before or after the link, once.
-  const at = context.cacheDirectory ? args.indexOf('--no-cache') : -1;
-  const rest = at < 0 ? args : args.toSpliced(at, 1);
-  if (rest.length !== 1) throw new AtlasError(`Usage: skill-atlas scan ${context.cacheDirectory ? '[--no-cache] ' : ''}<GitHub URL | directory>`);
-  const opened = await context.open(rest[0], { cache: at < 0 });
+  const choice = cacheChoice(args, context);
+  if (choice?.rest.length !== 1) throw new AtlasError(`Usage: skill-atlas scan ${context.cacheDirectory ? '[--no-cache] ' : ''}<GitHub URL | directory>`);
+  const opened = await context.open(choice.rest[0], { cache: choice.cache });
   if ('organization' in opened) return printOrganization(opened, context);
   const result = await scan(opened);
   printRepository(result.repository, result.skills, context);
@@ -75,21 +73,27 @@ async function printOrganization(source: OrganizationSource, { print, error }: C
   }
 }
 
-async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, { print, cacheDirectory }: Context) {
-  const serveUsage = `Usage: skill-atlas serve [--port <port>]${cacheDirectory ? ' [--no-cache]' : ''}`;
-  // `--port <port>` and `--no-cache` in any order, each once.
-  let port: string | undefined;
-  let cache = true;
-  for (let index = 0; index < args.length; index++) {
-    if (cacheDirectory && args[index] === '--no-cache' && cache) cache = false;
-    else if (args[index] === '--port' && port === undefined && index + 1 < args.length) port = args[++index];
-    else throw new AtlasError(serveUsage);
-  }
+async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, context: Context) {
+  const serveUsage = `Usage: skill-atlas serve [--port <port>]${context.cacheDirectory ? ' [--no-cache]' : ''}`;
+  const choice = cacheChoice(args, context);
+  if (!choice) throw new AtlasError(serveUsage);
+  const { cache, rest } = choice;
+  if (rest.length !== 0 && (rest.length !== 2 || rest[0] !== '--port')) throw new AtlasError(serveUsage);
   // Digits only: Number() would also take '', 0x1F90 and 1e3.
-  if (port !== undefined && (!/^\d+$/.test(port) || Number(port) > 65535)) {
-    throw new AtlasError(`Not a port: ${port}\n${serveUsage}`);
+  if (rest.length && (!/^\d+$/.test(rest[1]) || Number(rest[1]) > 65535)) {
+    throw new AtlasError(`Not a port: ${rest[1]}\n${serveUsage}`);
   }
-  print(`Skill Atlas: ${(await serve(port === undefined ? DEFAULT_PORT : Number(port), { cache })).href}`);
+  context.print(`Skill Atlas: ${(await serve(rest.length ? Number(rest[1]) : DEFAULT_PORT, { cache })).href}`);
+}
+
+/**
+ * `--no-cache` anywhere among the arguments, once, where there is a cache: whether to use the
+ * cache, and the other arguments; undefined for a `--no-cache` too many, or one where there is no cache.
+ */
+function cacheChoice(args: string[], { cacheDirectory }: Context): { cache: boolean; rest: string[] } | undefined {
+  const at = cacheDirectory ? args.indexOf('--no-cache') : -1;
+  const rest = at < 0 ? args : args.toSpliced(at, 1);
+  return rest.includes('--no-cache') ? undefined : { cache: at < 0, rest };
 }
 
 /** `<owner>/<repo> · N skills`, then each skill's name, first sentence and link. */

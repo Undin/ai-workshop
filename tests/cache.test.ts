@@ -177,9 +177,9 @@ test('--no-cache, before or after the link: the cache is not read, nothing is wr
   assert.deepEqual(readdirSync(fresh), []);
 });
 
-test('--no-cache once: twice, or with no link, is the usage', async (t) => {
+test('--no-cache once: twice, with a link or without, or with no link, is the usage', async (t) => {
   const directory = temporary(t);
-  for (const args of [['scan', '--no-cache', '--no-cache', EXAMPLE_URL], ['scan', '--no-cache']]) {
+  for (const args of [['scan', '--no-cache', '--no-cache', EXAMPLE_URL], ['scan', EXAMPLE_URL, '--no-cache', '--no-cache'], ['scan', '--no-cache', '--no-cache'], ['scan', '--no-cache']]) {
     assert.deepEqual(await atlasCached(args, directory), {
       code: 1, stdout: '', stderr: 'Usage: skill-atlas scan [--no-cache] <GitHub URL | directory>', asked: [],
     }, args.join(' '));
