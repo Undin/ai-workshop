@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Step 7 of ../SKILL.md, the part that needs no judgement: what review on a pull request is still
+// Step 8 of ../SKILL.md, the part that needs no judgement: what review on a pull request is still
 // unanswered, now or once it comes. Asks GitHub through `gh api` every interval, until there is some
 // (printed as JSON, exit 0), the quiet period passes without any (`[]`, exit 2), or no more is to
 // come: the pull request is merged or closed, or approved by a maintainer (what is still
