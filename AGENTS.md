@@ -13,11 +13,13 @@ Integration tests for every case in the spec.
    scanning; fix until green
 5. **Demo**, when the change adds a feature of the web view or changes one: `demos/<name>/<name>.demo.ts`
    showing exactly it, its recording `demos/<name>/cache/` (`npm run demo:record -- <name>`),
-   green and looked at locally (`npm run demo -- <name>`); its screenshots,
-   `demos/<name>/screenshots/`, committed with it, its video, `demos/out/`, never; again after a
-   later change that can alter what it shows
+   green and looked at locally (`npm run demo -- <name>`, its video and screenshots in
+   `demos/out/`, never committed); again after a later change that can alter what it shows
 6. **Pull request**: push, `gh pr create` against `main` with what and why; then wait for CI
-   (`gh pr checks --watch`); a red check is fixed with a new commit on the branch, until green
+   (`gh pr checks --watch`); a red check is fixed with a new commit on the branch, until green.
+   With a demo: a draft until its screenshots, `demos/<name>/screenshots/`, are the Demos
+   workflow's (`npm run demo:screenshots` after its green run, a commit of them, pushed, green
+   again), then ready
 ## Definition of done
 - All tests pass locally
 - The pull request's CI is green
@@ -29,6 +31,8 @@ Integration tests for every case in the spec.
 - `npm run demo [-- <name>]`: a demo of a feature ([demos/](demos/)), its video and screenshots,
   GitHub answering from its recording: no network, no token; the Demos workflow runs them all on
   every pull request
+- `npm run demo:screenshots`: the demos' screenshots to commit, `demos/<name>/screenshots/`, from the
+  Demos workflow's green run on the last commit pushed
 - `npm run demo:record [-- <name>]`: a demo's recording, `demos/<name>/cache/`, anew from GitHub;
   needs the network and `GITHUB_TOKEN`
 - `npm run e2e`: the real CLI on real repositories ([e2e/](e2e/)); needs the network and `GITHUB_TOKEN`

@@ -17,7 +17,8 @@
     "e2e": "node --test e2e/*.test.ts",
     "typecheck": "tsc --noEmit",
     "demo": "playwright test -c demos/playwright.config.ts",
-    "demo:record": "DEMO_RECORD=1 playwright test -c demos/playwright.config.ts --workers=1"
+    "demo:record": "DEMO_RECORD=1 playwright test -c demos/playwright.config.ts --workers=1",
+    "demo:screenshots": "node demos/screenshots.ts"
   },
   "dependencies": {
     "dompurify": "^3.4.17",

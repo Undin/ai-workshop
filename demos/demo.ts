@@ -95,10 +95,13 @@ export async function type(field: Locator, text: string, delay = 120) {
   await field.pressSequentially(text, { delay });
 }
 
-/** Where the screenshots of a demo's key points go: demos/<name>/screenshots/, kept with it. */
-const keyPoints = (name: string) => `${ROOT}demos/${name}/screenshots/`;
+/**
+ * Where the screenshots of a demo's key points go: demos/out/<name>/, next to its video; the ones
+ * committed, demos/<name>/screenshots/, come from the Demos workflow (demos/screenshots.ts).
+ */
+const keyPoints = (name: string) => `${VIDEOS}${name}/`;
 
-/** A key point of the demo: its screenshot, demos/<demo>/screenshots/<nn>-<name>.png, numbered in order. */
+/** A key point of the demo: its screenshot, demos/out/<demo>/<nn>-<name>.png, numbered in order. */
 export async function keyPoint(page: Page, name: string) {
   const recording = recordings.get(page)!;
   const directory = keyPoints(recording.name);

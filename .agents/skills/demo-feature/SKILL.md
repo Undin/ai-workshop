@@ -1,6 +1,6 @@
 ---
 name: demo-feature
-description: "Record a demo of a new or changed feature of the web view, to check it on a real repository: a Playwright script, demos/<name>/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, GitHub answering from its recording (demos/<name>/cache/, recorded once, then replayed with no network), asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm, looked at locally, never committed) and screenshots of its key points (demos/<name>/screenshots/<nn>-<point>.png, committed with it). Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
+description: "Record a demo of a new or changed feature of the web view, to check it on a real repository: a Playwright script, demos/<name>/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, GitHub answering from its recording (demos/<name>/cache/, recorded once, then replayed with no network), asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm) and screenshots of its key points (demos/out/<name>/<nn>-<point>.png), looked at locally, never committed; the screenshots committed, demos/<name>/screenshots/, are the Demos workflow's, taken on the pull request, a draft until then. Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
 ---
 
 Takes the feature (an issue, a pull request, or the spec cases of the change) and makes a demo of
@@ -18,7 +18,8 @@ A demo is a directory, `demos/<name>/`:
   `repositories`, an organization cut to the ones named (a few small ones; the whole one would
   be megabytes), and `latency`, each replayed answer that many milliseconds late, for a scan that
   must still be running when the demo acts on it (Stop)
-- `screenshots/`: its key points, committed
+- `screenshots/`: its key points as the Demos workflow took them on the pull request, committed
+  (step 5); never a local run's
 
 **Is there anything to demo?** Only what a user sees in the browser: a change of `src/web/` or of
 `spec/web.md`. A CLI-only change, a refactoring, tests, CI, docs: no demo; say so and stop.
@@ -61,7 +62,7 @@ the issue (`#<n>`), the repository it runs on. Import from `../demo.ts`, not `@p
 - `type(field, text, delay?)`: clicks the field (so the pointer goes there), clears it, types it
   key by key. Never `fill()`: the viewer must see the typing.
 - `pause(page, ms?)`: after each result, time to read it (1 to 3 s).
-- `keyPoint(page, name)`: a screenshot, `demos/<name>/screenshots/<nn>-<point>.png`, numbered in order. Take it
+- `keyPoint(page, name)`: a screenshot, `demos/out/<name>/<nn>-<point>.png`, numbered in order. Take it
   **right after the assertions** of that moment, so it shows a checked state; `<point>` says
   what it shows (`filtered-by-editor`, `stopped`).
 - `faster(page, factor, wait)`: a wait where nothing happens (a scan, a list loading) plays
@@ -99,7 +100,7 @@ A failing assertion is either a demo bug or a feature bug: fix the demo, or stop
 feature bug (implement-issue: back to its step 4); never loosen an assertion to get a video.
 
 Then **look at it**; a passing demo can still be a bad video. You can't play a video: look at
-its frames and at every screenshot, `demos/<name>/screenshots/` (Read the PNGs):
+its frames and at every screenshot, `demos/out/<name>/` (Read the PNGs):
 
 ```bash
 ffprobe -v error -show_entries format=duration -of csv=p=0 demos/out/<name>.webm
@@ -114,14 +115,22 @@ on screen long enough; nothing important is cut off or below the fold; no stretc
 
 ### 5. Commit
 
-The demo, `demos/<name>/`, its script, recording and screenshots, and its section in
-[demos/README.md](../../../demos/README.md) showing them (a changed demo: its section updated), in
-one commit (`Demo: <the feature> (#<n>)`); its video, `demos/out/`, is never committed.
+The demo, `demos/<name>/`, its script and recording, and its section in
+[demos/README.md](../../../demos/README.md) for its screenshots (a changed demo: its section
+updated), in one commit (`Demo: <the feature> (#<n>)`); `demos/out/` is never committed.
 
 The Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)) runs every demo on each pull
-request, from its recording, its video and screenshots artifacts: a check like CI.
+request, from its recording, its video and screenshots artifacts: a check like CI. Its screenshots
+are the ones committed, never a local run's: the pull request is a **draft** until then
+(`gh pr create --draft`). Once its Demos run on the last commit is green:
+
+```bash
+npm run demo:screenshots      # into demos/<name>/screenshots/, from that run
+git add demos/*/screenshots && git commit -m "Demos: screenshots from the Demos workflow"
+git push                      # green again, then: gh pr ready
+```
 
 ### 6. Report
 
 The demo's file, its length (seconds; sped-up parts with their factors), the key points with their
-screenshots, `demos/<name>/screenshots/`, the size of its recording, and anything it could not show.
+screenshots, `demos/out/<name>/`, the size of its recording, and anything it could not show.

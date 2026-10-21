@@ -94,8 +94,8 @@ comment instead of posting a new one.
 - **Demo**: if the change adds a feature visible in the web view or changes one (`src/web/`,
   `spec/web.md`), follow [demo-feature](../demo-feature/SKILL.md) once the feature's tests pass:
   a new demo, or the feature's existing one updated, of exactly the spec cases, green and looked at
-  locally, its script, recording and screenshots committed (its video never is). Nothing visible
-  changed: no demo.
+  locally, its script and recording committed; its screenshots are the Demos workflow's, committed
+  from the pull request, a draft until then (demo-feature, step 5). Nothing visible changed: no demo.
 - **Commit** as you go, in a few logical steps as AGENTS.md describes (e.g. the spec with the
   feature and its tests, then the e2e expectations, then the docs). Messages in the style of
   `git log`; reference the issue (`#<n>`).
@@ -124,7 +124,10 @@ gh pr checks <pr> --watch
 Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
 
 The demos are among the checks: the Demos workflow
-([demos.yml](../../../.github/workflows/demos.yml)) runs each one from its recording.
+([demos.yml](../../../.github/workflows/demos.yml)) runs each one from its recording. With a demo
+(step 4), create the pull request with `--draft`, and once every check is green commit the
+screenshots from its run ([demo-feature](../demo-feature/SKILL.md), step 5), push, watch again,
+then `gh pr ready <pr>`.
 
 A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally, fix it with a
 **new commit** (no force-push), push, and watch again, until every check is green.

@@ -1,7 +1,8 @@
 # The demos of the web view (demos/<name>/<name>.demo.ts), all of them, on every pull request, and
 # by hand (gh workflow run Demos --ref <branch>). GitHub answers each one from its recording,
 # demos/<name>/cache/: no network, no token, no 429 (#27). Its video an artifact of its own,
-# `<name>.webm`, and the screenshots of its key points another, `<name>-screenshots`, to look at.
+# `<name>.webm`, and the screenshots of its key points another, `<name>-screenshots`: the ones
+# committed in demos/<name>/screenshots/ (npm run demo:screenshots).
 # A demo asserts what it shows: a red run is a demo or a feature that broke, or a request the
 # recording does not have (npm run demo:record -- <name>).
 name: Demos
@@ -59,11 +60,11 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 90
-      # The screenshots of its key points, demos/<name>/screenshots/<nn>-<point>.png, as far as it got.
+      # The screenshots of its key points, demos/out/<name>/<nn>-<point>.png, as far as it got.
       - uses: actions/upload-artifact@v7
         if: always() && steps.demo.outcome != 'skipped'
         with:
           name: ${{ matrix.name }}-screenshots
-          path: demos/${{ matrix.name }}/screenshots/
+          path: demos/out/${{ matrix.name }}/
           if-no-files-found: warn
           retention-days: 90

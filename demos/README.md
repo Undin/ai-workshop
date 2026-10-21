@@ -2,8 +2,8 @@
 
 The features of the web view, each one a demo: its script, `<name>/<name>.demo.ts`, the GitHub
 answers it replays, `<name>/cache/`, and the screenshots of its key points, `<name>/screenshots/`,
-below. `npm run demo [-- <name>]` runs them again and rewrites the screenshots; the
-[README](../README.md) says how, and how to record a demo anew.
+below, as the Demos workflow took them (`npm run demo:screenshots`). The [README](../README.md)
+says how to run a demo, and how to record one anew.
 
 ## The filter
 
