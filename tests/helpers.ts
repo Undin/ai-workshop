@@ -84,6 +84,44 @@ export function owner(login: string, repositories: string[]): Recording {
 
 const COMMITS = '---\nname: commits\ndescription: Write commit messages the way this repository does. Use for every commit.\n---\n# Commits\n';
 
+/** JetBrains/groups: a skill for each rule of spec/analysis.md, Group, each with the group it gets. */
+export const GROUPS: Record<string, string> = Object.fromEntries(
+  Object.entries({
+    // A keyword in the name and in the first sentence.
+    'run-tests': 'Run the tests before pushing.',
+    changelog: 'Update CHANGELOG.md for a release.',
+    // In the name counts 3: more than three other groups' words in the first sentence, 1 each.
+    deploy: 'Run the tests, then review the release.',
+    // An override: its words would say review.
+    nopressure: 'Review a pull request before a commit.',
+    // Whole words only: `test` is not in `latest`, `attestations`, `contested`.
+    latest: 'The latest attestations, contested.',
+    // A keyword of two words: both in a row.
+    ship: 'Open a pull request.',
+    'pull-logs': 'Pull the request logs.',
+    // A tie, review and git: the group listed first.
+    'review-commits': 'Check them.',
+    // Only the first sentence counts.
+    notes: 'Keep notes. Then run the tests.',
+    // No description.
+    mystery: '',
+  }).map(([name, description]) => [name, `---\nname: ${name}\n${description ? `description: ${description}\n` : ''}---\n# ${name}\n`]),
+);
+
+/** The group each skill of JetBrains/groups gets. */
+export const GROUPED: Record<string, string> = {
+  'run-tests': 'testing',
+  changelog: 'releases',
+  deploy: 'build-ci',
+  nopressure: 'other',
+  latest: 'other',
+  ship: 'git',
+  'pull-logs': 'other',
+  'review-commits': 'review',
+  notes: 'other',
+  mystery: 'other',
+};
+
 /** What GitHub answers for a small repository, JetBrains/example, with one skill. */
 export const EXAMPLE: Recording = {
   'https://api.github.com/repos/JetBrains/example': { status: 200, body: { full_name: 'JetBrains/example', default_branch: 'main' } },
@@ -122,6 +160,10 @@ export const EXAMPLE: Recording = {
     { '.claude/skills/shared': '../../shared/review' },
   ),
   ...lastCommit('JetBrains/linked', 'shared/review', '2026-07-07T07:07:07Z'),
+
+  // Groups (spec/analysis.md, Group): a skill for each rule, by its directory.
+  ...repository('JetBrains/groups', Object.fromEntries(Object.entries(GROUPS).map(([name, text]) => [`.claude/skills/${name}/SKILL.md`, text]))),
+  ...Object.fromEntries(Object.keys(GROUPS).flatMap((name) => Object.entries(lastCommit('JetBrains/groups', `.claude/skills/${name}`, '2026-05-05T05:05:05Z')))),
 
   // The JetBrains organization: JetBrains/example, one with a warning, an empty one, one without skills.
   ...owner('JetBrains', ['example', 'malformed', 'new', 'none']),

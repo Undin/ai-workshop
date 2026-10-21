@@ -36,6 +36,8 @@ export type Skill = {
   properties: Record<string, unknown>;
   /** The Markdown after the front matter. */
   body: string;
+  /** What it helps with: the id of its group, by `clusterOf`. */
+  cluster: string;
   /** When it last changed, asked in the web view's scan only: a GitHub request each. */
   updated?: LastUpdate;
 };

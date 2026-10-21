@@ -49,6 +49,44 @@ GitHub, all at once; not in the CLI's
 - The committer's date, in UTC: `2026-10-14T12:53:27.000Z`
 - It cannot be known (GitHub answers no more, no commit) → that skill's is unknown, and why; the
   scan goes on
+## Group
+What a skill helps with, for the [web view](web.md)'s groups: **one group** of a fixed list, from its
+name and its description's *first sentence*; no network, the same skill always in the same group
+
+| id | Name |
+| --- | --- |
+| `language-engineering` | Language engineering & DSLs |
+| `ml` | AI/ML & evaluation |
+| `data` | Data & analytics |
+| `performance` | Performance & benchmarking |
+| `debugging` | Debugging & diagnostics |
+| `testing` | Testing |
+| `releases` | Releases & changelogs |
+| `issues` | Issues & bug fixing |
+| `docs` | Documentation & writing |
+| `review` | Code review & quality |
+| `git` | Git & pull requests |
+| `search` | Code search & navigation |
+| `migration` | Refactoring & migrations |
+| `build-ci` | Build & CI/CD |
+| `ide-plugins` | IDE & plugin development |
+| `languages` | Languages & frameworks |
+| `workflow` | Planning & agent workflows |
+| `other` | Other |
+
+- In this order: the specific ones first; it breaks ties
+- **Overrides** first, by the exact name: `nopressure` → Other, `ue-code-authoring` → Languages,
+  `analysis-api-mark-internal-apis` → Refactoring, `plugin-model-analyzer` → Code search,
+  `markdown-library-update` → Build, `driver-ui-tests` → Testing
+- The words: the name, the first sentence; in lowercase, split at what is not a letter or a digit
+  (`MLX-VLM` → `mlx`, `vlm`)
+- Each group has its **keywords** (`src/core/cluster.ts`): one in the *name* counts 3, in the *first
+  sentence* 1, each keyword once
+- Whole words only: `test` is not in `latest`; a keyword of two words, both in a row: `pull request`,
+  not `pull the request`
+- The highest count wins; a **tie**: the group listed first (`review-commits`: Code review, not Git);
+  0 → **Other**, a skill with no description too
+- Checked on 215 skills of JetBrains' repositories, by hand (`tests/groups.golden.txt`)
 ## Organization
 `https://github.com/<owner>`, with or without the scheme or a trailing slash: an organization, or a user the same way
 - Its **public** repositories, all of them (forks and archived ones too), in GitHub's order: by name
@@ -63,7 +101,7 @@ GitHub, all at once; not in the CLI's
 ## Architecture
 Core: fetch → find → parse. CLI: a *thin client*.
 Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text and its parts: the other
-front matter keys, the body; in the web view's scan, its last update
+front matter keys, the body; its group; in the web view's scan, its last update
 ## Details
 - **GitHub API**, no clone; *under 5 s* for intellij-community; its answers kept in the
   [cache](cli.md#cache) of the Node clients, not by the core
