@@ -28,6 +28,9 @@ Or in a local web view: a field for a repository link, its skills (with a filter
 with when each was last updated;
 for an organization, its repositories as they are scanned, each a link to its page from that scan,
 which goes on meanwhile (or stops, with Stop).
+Once a scan is over, *Group skills* puts its skills (a repository's, or an organization's) in
+groups of what they help with: Testing, Releases & changelogs, Build & CI/CD… (a fixed list,
+by keywords of their names and descriptions, [spec/analysis.md](spec/analysis.md)).
 
 ```console
 $ ./skill-atlas serve
