@@ -12,8 +12,10 @@ result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - A **field** for a repository link (a GitHub URL, or a directory) and a *Scan* button; Enter scans too
 - The address keeps it, `?source=<link>`: a reload or a shared link scans it again
 - The repository, `JetBrains/kotlin · 6 skills`, and its **skills**, sorted by **name**: the name,
-  the description's *first sentence* in at most *two lines* (cut with `…`, whole on hover),
-  `also in <paths>` for copies ([analysis.md](analysis.md), Skill)
+  the description's *first sentence* in at most *two lines* (cut with `…`, whole on hover);
+  a thin **divider** between two skills
+- A skill's copies ([analysis.md](analysis.md), Skill): a muted **badge** after its name, `+1 copy`,
+  `+2 copies`; their paths on hover, `also in <paths>`; no copies, no badge
 - A **filter** field above the skills, when there are any: it keeps the skills whose *name* or
   *first sentence* contains its text, in any case, spaces around it aside; at once as it is typed,
   no new scan; each match of it is **marked** there, in the name and the first sentence
@@ -21,7 +23,7 @@ result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - The filter does not change the chosen skill; a new scan empties it; the address does not keep it
 - A chosen skill's **SKILL.md**: the front matter as a table, the body as *Markdown*, and its link
   on GitHub at the *scanned commit*; in a directory, the file's path as text (a web page cannot
-  open a `file://` link); the first skill is chosen at first
+  open a `file://` link); `also in <paths>` for its copies; the first skill is chosen at first
 - The SKILL.md is *untrusted*: rendered HTML is sanitized, scripts never run, remote images
   are not loaded (they would tell their server who opened it)
 - The warnings, as the CLI prints them
