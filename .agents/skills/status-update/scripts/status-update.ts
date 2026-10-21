@@ -5,13 +5,11 @@
 // that closed it; the issues in progress, open with an open pull request linked; every other pull
 // request created or merged since. With `--dry-run`, it prints the message and posts nothing. Exit 1:
 // an error.
-import { execFile } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { promisify } from 'node:util';
+import { gh } from '../../../shared/gh.ts';
+import { environment, slack, Unavailable } from '../../../shared/slack.ts';
 
 const USAGE = 'Usage: status-update.ts --since <YYYY-MM-DD | YYYY-MM-DDTHH:MM[:SS][Z | ±HH:MM]> [--repo <owner/name>] [--dry-run]';
-/** Slack's Web API; another one in tests. */
-const API = process.env.SLACK_API || 'https://slack.com/api';
 /** The longest message Slack shows whole; a longer update goes on in its thread. */
 const MESSAGE_LENGTH = 3900;
 /** How many times to post when Slack's rate limit stops it. */
@@ -43,26 +41,13 @@ const QUERY = `query($q: String!, $after: String) {
   }
 }`.replace(/\s+/g, ' ');
 
-const run = promisify(execFile);
-
-/** What `gh <args>` prints, parsed. */
-async function gh<T>(args: string[]): Promise<T> {
-  try {
-    const { stdout } = await run('gh', args, { maxBuffer: 2 ** 28 });
-    return JSON.parse(stdout) as T;
-  } catch (error) {
-    const stderr = (error as { stderr?: string }).stderr?.trim();
-    throw new Error(`gh ${args[0]} ${args[1]} failed${stderr ? `: ${stderr}` : ''}`);
-  }
-}
-
 /** Every issue or pull request GitHub's search finds for `q`: every page. */
 async function search<T>(q: string): Promise<T[]> {
   const found: T[] = [];
   let after: string | null = null;
   do {
     // The search last: tests/fake-gh.ts answers by the last argument.
-    const page: Page<T> = await gh(['api', 'graphql', '-f', `query=${QUERY}`, ...(after ? ['-f', `after=${after}`] : []), '-f', `q=${q}`]);
+    const page: Page<T> = await gh(['api', 'graphql', '-f', `query=${QUERY}`, ...(after ? ['-f', `after=${after}`] : []), '-f', `q=${q}`], 'api graphql');
     found.push(...page.data.search.nodes);
     after = page.data.search.pageInfo.hasNextPage ? page.data.search.pageInfo.endCursor : null;
   } while (after);
@@ -138,29 +123,15 @@ function messages(text: string): string[] {
   return [...parts, part].map((piece) => piece.trim()).filter(Boolean);
 }
 
-/** What Slack's `method` answers, when it says ok; tried again when Slack's rate limit stops it. */
-async function slack<T>(token: string, method: string, query: Record<string, string>, body?: object): Promise<T> {
-  const url = `${API}/${method}${body ? '' : `?${new URLSearchParams(query)}`}`;
+/** What Slack's `method` answers, tried again when Slack's rate limit stops it: only then, so nothing is posted twice. */
+async function call<T>(token: string, method: string, query: Record<string, string>, body?: object): Promise<T> {
   for (let attempt = 1; ; attempt++) {
-    const response = await fetch(url, {
-      method: body ? 'POST' : 'GET',
-      headers: {
-        authorization: `Bearer ${token}`,
-        ...(body ? { 'content-type': 'application/json; charset=utf-8' } : {}),
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    }).catch((error: Error) => {
-      throw new Error(`Slack ${method} failed: ${error.message}`);
-    });
-    if (response.status === 429 && attempt < ATTEMPTS) {
-      await sleep((Number(response.headers.get('retry-after') ?? 1) || 0) * 1000);
-      continue;
+    try {
+      return await slack<T>(token, method, query, body);
+    } catch (error) {
+      if (!(error instanceof Unavailable && error.status === 429 && attempt < ATTEMPTS)) throw error;
+      await sleep(error.retryAfter * 1000);
     }
-    if (!response.ok) throw new Error(`Slack ${method} failed: HTTP ${response.status}`);
-    const answer = (await response.json()) as { ok: boolean; error?: string } & T;
-    if (answer.ok) return answer;
-    const hint = answer.error === 'not_in_channel' ? ' (invite the bot to the channel: /invite @<bot>)' : '';
-    throw new Error(`Slack ${method} failed: ${answer.error ?? 'no reason given'}${hint}`);
   }
 }
 
@@ -168,12 +139,12 @@ async function slack<T>(token: string, method: string, query: Record<string, str
 async function post(token: string, channel: string, text: string): Promise<string> {
   let thread: string | undefined;
   for (const part of messages(text)) {
-    const posted = await slack<{ ts: string }>(token, 'chat.postMessage', {}, {
+    const posted = await call<{ ts: string }>(token, 'chat.postMessage', {}, {
       channel, text: part, unfurl_links: false, unfurl_media: false, ...(thread ? { thread_ts: thread } : {}),
     });
     thread ??= posted.ts;
   }
-  const link = await slack<{ permalink: string }>(token, 'chat.getPermalink', { channel, message_ts: thread! });
+  const link = await call<{ permalink: string }>(token, 'chat.getPermalink', { channel, message_ts: thread! });
   return link.permalink;
 }
 
@@ -204,18 +175,6 @@ function parse(args: string[]) {
   return { since, repo, dryRun };
 }
 
-/** The environment posting needs: the token, and the channel's ID, not its name. */
-function environment() {
-  const token = process.env.SLACK_BOT_TOKEN;
-  const channel = process.env.SLACK_CHANNEL;
-  if (!token) throw new Error('SLACK_BOT_TOKEN is not set');
-  if (!channel) throw new Error('SLACK_CHANNEL is not set');
-  if (!/^[CG][A-Z0-9]+$/.test(channel)) {
-    throw new Error(`SLACK_CHANNEL is not a channel ID (C…, in the channel's details in Slack): ${channel}`);
-  }
-  return { token, channel };
-}
-
 /** What the script exits with, having printed the update. */
 async function main(args: string[]): Promise<number> {
   let options: ReturnType<typeof parse>;
@@ -228,7 +187,7 @@ async function main(args: string[]): Promise<number> {
   try {
     // Before asking GitHub: a missing token fails at once.
     const slackEnv = options.dryRun ? undefined : environment();
-    const repo = options.repo ?? (await gh<{ nameWithOwner: string }>(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+    const repo = options.repo ?? (await gh<{ nameWithOwner: string }>(['repo', 'view', '--json', 'nameWithOwner'], 'repo view')).nameWithOwner;
     const text = message(await collect(repo, options.since));
     console.log(text);
     if (slackEnv) console.log(`\nPosted: ${await post(slackEnv.token, slackEnv.channel, text)}`);

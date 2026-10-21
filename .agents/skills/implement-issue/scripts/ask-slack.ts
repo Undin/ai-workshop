@@ -8,6 +8,7 @@
 // error.
 import { text } from 'node:stream/consumers';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { environment, slack, Unavailable } from '../../../shared/slack.ts';
 
 /** How long to wait for an answer (`--wait`). */
 const WAIT_MINUTES = 60;
@@ -15,48 +16,10 @@ const WAIT_MINUTES = 60;
 const INTERVAL_SECONDS = 30;
 const USAGE = `Usage: ask-slack.ts [--thread <ts>] [--wait <minutes: ${WAIT_MINUTES}>] [--interval <seconds: ${INTERVAL_SECONDS}>] < question
        ask-slack.ts --thread <ts> --after <question ts> [--wait <minutes>] [--interval <seconds>]`;
-/** Slack's Web API; another one in tests. */
-const API = process.env.SLACK_API || 'https://slack.com/api';
-
 type Message = { ts: string; user?: string; bot_id?: string; subtype?: string; text?: string };
 type Answer = { author: string; text: string; ts: string };
 /** What the script prints: where the question is, and what was answered to it. */
 type Asked = { channel: string; thread: string; question: string; url: string; answers: Answer[] };
-
-/** A failure that passes: Slack's rate limit or a server error, the network. */
-class Unavailable extends Error {
-  /** How many seconds Slack asks to wait (`Retry-After`), if it does. */
-  retryAfter: number;
-  constructor(message: string, retryAfter = 0) {
-    super(message);
-    this.retryAfter = retryAfter;
-  }
-}
-
-/** What Slack's `method` answers, when it says ok. */
-async function slack<T>(token: string, method: string, query: Record<string, string>, body?: object): Promise<T> {
-  const url = `${API}/${method}${body ? '' : `?${new URLSearchParams(query)}`}`;
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: body ? 'POST' : 'GET',
-      headers: {
-        authorization: `Bearer ${token}`,
-        ...(body ? { 'content-type': 'application/json; charset=utf-8' } : {}),
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch (error) {
-    throw new Unavailable(`Slack ${method} failed: ${(error as Error).message}`);
-  }
-  const failed = `Slack ${method} failed: HTTP ${response.status}`;
-  if (response.status === 429) throw new Unavailable(failed, Number(response.headers.get('retry-after')) || 0);
-  if (response.status >= 500) throw new Unavailable(failed);
-  if (!response.ok) throw new Error(failed);
-  const answer = (await response.json()) as { ok: boolean; error?: string } & T;
-  if (!answer.ok) throw new Error(`Slack ${method} failed: ${answer.error ?? 'no reason given'}`);
-  return answer;
-}
 
 /** A message's ts as a number to compare: `1792572444.850259`, always six decimals. */
 const order = (ts: string) => BigInt(ts.replace('.', ''));
@@ -113,18 +76,6 @@ function parse(args: string[]) {
   }
   if (after && !thread) throw new Error('--after needs the --thread of the question');
   return { thread, after, wait, interval };
-}
-
-/** The environment the script needs: the token, and the channel's ID, not its name. */
-function environment() {
-  const token = process.env.SLACK_BOT_TOKEN;
-  const channel = process.env.SLACK_CHANNEL;
-  if (!token) throw new Error('SLACK_BOT_TOKEN is not set');
-  if (!channel) throw new Error('SLACK_CHANNEL is not set');
-  if (!/^[CG][A-Z0-9]+$/.test(channel)) {
-    throw new Error(`SLACK_CHANNEL is not a channel ID (C…, in the channel's details in Slack): ${channel}`);
-  }
-  return { token, channel };
 }
 
 /** What the script exits with, having printed what it got. */
