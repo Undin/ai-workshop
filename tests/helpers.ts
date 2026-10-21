@@ -15,16 +15,24 @@ export const SLOW_ANSWER_MS = 2000;
 /** The commit GitHub answers for JetBrains/example. */
 export const EXAMPLE_COMMIT = '5ab6270ab772d113e8ad52ebfcaa0109c522ae00';
 
-/** What GitHub answers for a repository listed through its tree, at EXAMPLE_COMMIT, with these files. */
-export function inTree(id: string, files: Record<string, string>): Recording {
+/**
+ * What GitHub answers for a repository listed through its tree, at EXAMPLE_COMMIT, with these files,
+ * and these symbolic links to their targets.
+ */
+export function inTree(id: string, files: Record<string, string>, links: Record<string, string> = {}): Recording {
+  const tree = [
+    ...Object.keys(files).map((path) => ({ path, mode: '100644', type: 'blob', sha: 'file' })),
+    ...Object.keys(links).map((path) => ({ path, mode: '120000', type: 'blob', sha: `link:${path}` })),
+  ];
   return {
     [`https://api.github.com/repos/${id}/commits/main`]: { status: 200, body: { sha: EXAMPLE_COMMIT } },
-    [`https://api.github.com/repos/${id}/git/trees/${EXAMPLE_COMMIT}?recursive=1`]: {
-      status: 200,
-      body: { truncated: false, tree: Object.keys(files).map((path) => ({ path, mode: '100644', type: 'blob', sha: 'file' })) },
-    },
+    [`https://api.github.com/repos/${id}/git/trees/${EXAMPLE_COMMIT}?recursive=1`]: { status: 200, body: { truncated: false, tree } },
     ...Object.fromEntries(
       Object.entries(files).map(([path, body]) => [`https://raw.githubusercontent.com/${id}/${EXAMPLE_COMMIT}/${path}`, { status: 200, body }]),
+    ),
+    // A link's blob is its target.
+    ...Object.fromEntries(
+      Object.entries(links).map(([path, target]) => [`https://api.github.com/repos/${id}/git/blobs/link:${path}`, { status: 200, body: { content: btoa(target) } }]),
     ),
   };
 }
@@ -98,27 +106,16 @@ export const EXAMPLE: Recording = {
   ...lastCommit('JetBrains/dates', '.claude/skills/first', '2026-10-14T12:53:27Z'),
   ...lastCommit('JetBrains/dates', '.claude/skills/second', '2025-03-02T23:30:00-05:00'),
   ...lastCommit('JetBrains/dates', '.claude/skills/uncommitted'),
+  [`https://api.github.com/repos/JetBrains/dates/commits?sha=${EXAMPLE_COMMIT}&path=.claude/skills/limited&per_page=1`]: RATE_LIMITED,
 
   // A skill only through a link: `.claude/skills/shared` → `../../shared/review`, not in `skills/<name>/`.
   'https://api.github.com/repos/JetBrains/linked': { status: 200, body: { full_name: 'JetBrains/linked', default_branch: 'main' } },
-  'https://api.github.com/repos/JetBrains/linked/commits/main': { status: 200, body: { sha: EXAMPLE_COMMIT } },
-  [`https://api.github.com/repos/JetBrains/linked/git/trees/${EXAMPLE_COMMIT}?recursive=1`]: {
-    status: 200,
-    body: {
-      truncated: false,
-      tree: [
-        { path: 'shared/review/SKILL.md', mode: '100644', type: 'blob', sha: 'file' },
-        { path: '.claude/skills/shared', mode: '120000', type: 'blob', sha: 'link' },
-      ],
-    },
-  },
-  'https://api.github.com/repos/JetBrains/linked/git/blobs/link': { status: 200, body: { content: btoa('../../shared/review') } },
-  [`https://raw.githubusercontent.com/JetBrains/linked/${EXAMPLE_COMMIT}/shared/review/SKILL.md`]: {
-    status: 200,
-    body: '---\nname: review\ndescription: Review a change.\n---\n# Review\n',
-  },
+  ...inTree(
+    'JetBrains/linked',
+    { 'shared/review/SKILL.md': '---\nname: review\ndescription: Review a change.\n---\n# Review\n' },
+    { '.claude/skills/shared': '../../shared/review' },
+  ),
   ...lastCommit('JetBrains/linked', 'shared/review', '2026-07-07T07:07:07Z'),
-  [`https://api.github.com/repos/JetBrains/dates/commits?sha=${EXAMPLE_COMMIT}&path=.claude/skills/limited&per_page=1`]: RATE_LIMITED,
 
   // The JetBrains organization: JetBrains/example, one with a warning, an empty one, one without skills.
   ...owner('JetBrains', ['example', 'malformed', 'new', 'none']),
