@@ -43,7 +43,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 .skills button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
 .skills button[aria-current] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .skills mark { background: color-mix(in srgb, #d4a72c 45%, transparent); color: inherit; border-radius: 2px; }
-.skills .heading { display: flex; align-items: baseline; gap: 0.5rem; }
+.skills .heading { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.5rem; }
 .skills .name { font-weight: 600; overflow-wrap: anywhere; }
 .skills .copies { flex: none; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; }
 .skills .repository { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
