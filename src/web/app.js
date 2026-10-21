@@ -106,13 +106,20 @@ function render({ repository, skills, warnings }) {
     const button = element('button', '');
     button.type = 'button';
     const name = element('span', skill.name, 'name');
-    button.append(name);
+    const heading = element('span', '', 'heading');
+    heading.append(name);
+    // Copies: a badge after the name, their paths on hover.
+    if (skill.copies.length) {
+      const copies = element('span', `+${count(skill.copies.length, 'copy', 'copies')}`, 'copies');
+      copies.title = alsoIn(skill);
+      heading.append(copies);
+    }
+    button.append(heading);
     const summary = skill.summary ? element('span', skill.summary, 'summary') : undefined;
     if (summary) {
       summary.title = skill.summary;
       button.append(summary);
     }
-    if (skill.copies.length) button.append(element('span', alsoIn(skill), 'copies'));
     button.addEventListener('click', () => choose(skill, button));
     const item = element('li', '');
     item.append(button);

@@ -58,10 +58,40 @@ test('a long first sentence: at most two lines in the list, whole on hover', asy
   expect(scrollHeight).toBeGreaterThan(height); // the rest is cut, not wrapped below
 });
 
-test('copies: `also in <paths>`', async ({ page }) => {
+test('copies: a badge after the name, `+1 copy`, the paths on hover; no copies, no badge', async ({ page }) => {
   await scan(page, FIXTURE);
-  await expect(skills(page).filter({ hasText: /^commits/ }).locator('.copies')).toHaveText('also in .github/skills/commits/SKILL.md');
-  await expect(skills(page).filter({ hasText: /^review-pr/ }).locator('.copies')).toHaveText('also in agent/skills/review-pr/SKILL.md');
+  const commits = skills(page).filter({ hasText: /^commits/ });
+  await expect(commits.locator('.copies')).toHaveText('+1 copy');
+  await expect(commits.locator('.copies')).toHaveAttribute('title', 'also in .github/skills/commits/SKILL.md');
+  // On the name's line, after it; no `also in` line in the list.
+  const [name, badge] = await Promise.all([commits.locator('.name').boundingBox(), commits.locator('.copies').boundingBox()]);
+  expect(badge!.x).toBeGreaterThan(name!.x + name!.width);
+  expect(Math.abs(badge!.y + badge!.height / 2 - (name!.y + name!.height / 2))).toBeLessThan(name!.height / 2);
+  await expect(page.getByRole('list', { name: 'Skills' }).getByText(/also in/)).toHaveCount(0);
+  await expect(skills(page).filter({ hasText: /^review-pr/ }).locator('.copies')).toHaveAttribute(
+    'title',
+    'also in agent/skills/review-pr/SKILL.md',
+  );
+  // No copies: no badge.
+  for (const deploy of await skills(page).filter({ hasText: /^deploy/ }).all()) await expect(deploy.locator('.copies')).toHaveCount(0);
+});
+
+test('two copies: `+2 copies`, both paths on hover', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/copies');
+  await expect(page.getByRole('heading', { name: 'JetBrains/copies · 1 skill' })).toBeVisible();
+  await expect(skills(page).locator('.copies')).toHaveText('+2 copies');
+  await expect(skills(page).locator('.copies')).toHaveAttribute('title', 'also in .claude/skills/review/SKILL.md, .github/skills/review/SKILL.md');
+});
+
+test('a divider between two skills; the chosen one keeps its highlight', async ({ page }) => {
+  await scan(page, FIXTURE);
+  const items = page.getByRole('list', { name: 'Skills' }).getByRole('listitem');
+  await expect(items).toHaveCount(10);
+  const borders = await items.evaluateAll((nodes) => nodes.map((node) => node.ownerDocument.defaultView!.getComputedStyle(node).borderTopStyle));
+  expect(borders).toEqual(['none', ...Array(9).fill('solid')]);
+  const background = (button: ReturnType<typeof skills>) => button.evaluate((node) => node.ownerDocument.defaultView!.getComputedStyle(node).backgroundColor);
+  await expect(skills(page).first()).toHaveAttribute('aria-current', 'true');
+  expect(await background(skills(page).first())).not.toBe(await background(skills(page).nth(1)));
 });
 
 test('the filter: the skills whose name or first sentence contains its text, in any case, and the count', async ({ page }) => {
@@ -102,6 +132,12 @@ test('the filter: each match of its text is marked in the name and the first sen
   await page.getByLabel('Filter').fill('.md');
   await expect(skills(page).locator('.name')).toHaveText(['changelog']);
   await expect(skills(page).locator('mark')).toHaveText(['.md']);
+  // The copies' badge is neither filtered nor marked.
+  await page.getByLabel('Filter').fill('copy');
+  await expect(page.getByText('No skills match copy')).toBeVisible();
+  await page.getByLabel('Filter').fill('commits');
+  await expect(skills(page).locator('.copies')).toHaveText(['+1 copy']);
+  await expect(skills(page).locator('.copies mark')).toHaveCount(0);
   await page.getByLabel('Filter').fill('');
   await expect(skills(page).locator('mark')).toHaveCount(0);
 });

@@ -47,6 +47,16 @@ const answers = replay(
     ...repository('JetBrains/long', {
       '.claude/skills/long/SKILL.md': `---\nname: long\ndescription: ${'Explains every step of a very long procedure, '.repeat(8)}in detail.\n---\n# Long\n`,
     }),
+    // One skill in three places: the skill and two copies.
+    ...repository(
+      'JetBrains/copies',
+      Object.fromEntries(
+        ['.agents', '.claude', '.github'].map((folder) => [
+          `${folder}/skills/review/SKILL.md`,
+          '---\nname: review\ndescription: Review a change.\n---\n# Review\n',
+        ]),
+      ),
+    ),
     // An organization whose second repository answers SLOW_ANSWER_MS late.
     ...owner('Slow', ['first', 'late']),
     ...inTree('Slow/first', {}),

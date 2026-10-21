@@ -37,12 +37,15 @@ ul { list-style: none; margin: 0; padding: 0; }
 #filtering label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
 #filter { box-sizing: border-box; width: 100%; }
 #shown { font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0 0; }
-#skills button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 6px; padding: 0.5rem 0.6rem; cursor: pointer; }
+#skills li + li { border-top: 1px solid var(--border); padding-top: 2px; margin-top: 2px; }
+#skills button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 6px; padding: 0.6rem 0.6rem; cursor: pointer; }
 #skills button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
 #skills button[aria-current] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 #skills mark { background: color-mix(in srgb, #d4a72c 45%, transparent); color: inherit; border-radius: 2px; }
-#skills .name { display: block; font-weight: 600; }
-#skills .summary, #skills .copies { display: block; font-size: 0.85rem; color: var(--muted); }
+#skills .heading { display: flex; align-items: baseline; gap: 0.5rem; }
+#skills .name { font-weight: 600; overflow-wrap: anywhere; }
+#skills .copies { flex: none; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; }
+#skills .summary { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 0.1rem; }
 /* At most two lines; the title has the whole sentence. */
 #skills .summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 article { padding: 1rem 2rem; overflow: auto; max-width: 60rem; }
