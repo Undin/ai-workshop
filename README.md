@@ -47,7 +47,7 @@ rewrites it after adding a repository or moving a pin.
 
 `npm run demo [-- <name>]` records a feature of the web view, [demos/](demos/)`<name>/<name>.demo.ts`,
 with a visible pointer, into `demos/out/<name>.webm`, and the screenshots of its key points into
-`demos/<name>/screenshots/`, committed with it. GitHub answers from the demo's recording,
+`demos/<name>/screenshots/`, committed with it: [demos/README.md](demos/README.md) shows them. GitHub answers from the demo's recording,
 `demos/<name>/cache/`: no network, no token, the same every time; a request not recorded fails the
 demo. `npm run demo:record [-- <name>]` records those answers anew from real repositories, with
 `GITHUB_TOKEN`; `demos/<name>/recording.json` can cut an organization to a few of its repositories
