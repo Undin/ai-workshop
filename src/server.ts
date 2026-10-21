@@ -14,7 +14,7 @@ export type ServerOptions = {
 };
 
 /** What GET /api/scan answers: the scan, each skill with its link, first sentence, group and last update. */
-export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link: string; summary: string; group: { id: string; name: string } })[] };
+export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link: string; summary: string; group: { id: string; name: string; order: number } })[] };
 /** What a request that cannot be answered gets instead. */
 export type ErrorAnswer = { error: string };
 /**

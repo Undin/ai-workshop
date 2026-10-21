@@ -15,12 +15,12 @@ after(() => server.close());
 const scanned = async (source: string) =>
   (await (await fetch(new URL(`/api/scan?source=${encodeURIComponent(source)}`, base))).json()) as ScanAnswer;
 
-test('each skill comes with its group, its id and name', async () => {
+test('each skill comes with its group: its id, its name, its place in the list', async () => {
   const answer = await scanned('https://github.com/JetBrains/groups');
   assert.deepEqual(Object.fromEntries(answer.skills.map((skill) => [skill.name, skill.group.id])), GROUPED);
   for (const skill of answer.skills) assert.deepEqual(skill.group, cluster(skill.group.id));
-  assert.deepEqual(answer.skills.find((skill) => skill.name === 'run-tests')!.group, { id: 'testing', name: 'Testing' });
-  assert.deepEqual(answer.skills.find((skill) => skill.name === 'notes')!.group, { id: 'other', name: 'Other' });
+  assert.deepEqual(answer.skills.find((skill) => skill.name === 'run-tests')!.group, { id: 'testing', name: 'Testing', order: 5 });
+  assert.deepEqual(answer.skills.find((skill) => skill.name === 'notes')!.group, { id: 'other', name: 'Other', order: 17 });
 });
 
 test('17 groups and Other, the names as the spec lists them, in its order', () => {

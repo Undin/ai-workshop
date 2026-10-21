@@ -117,10 +117,10 @@ export function clusterOf(skill: { name: string; description: string }): string 
   return best.id;
 }
 
-/** A group by its id; Other for one not in the list. */
-export function cluster(id: string): { id: string; name: string } {
-  const found = CLUSTERS.find((cluster) => cluster.id === id);
-  return found ? { id: found.id, name: found.name } : OTHER;
+/** A group by its id, and its place in the list, where the groups are shown; Other, last, for one not in it. */
+export function cluster(id: string): { id: string; name: string; order: number } {
+  const order = CLUSTERS.findIndex((cluster) => cluster.id === id);
+  return order < 0 ? { ...OTHER, order: CLUSTERS.length } : { id, name: CLUSTERS[order].name, order };
 }
 
 /** Lowercase, split at what is not a letter or a digit: `MLX-VLM` → `mlx`, `vlm`. */

@@ -37,17 +37,24 @@ ul { list-style: none; margin: 0; padding: 0; }
 #filtering label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
 #filter { box-sizing: border-box; width: 100%; }
 #shown { font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0 0; }
-#skills li + li { border-top: 1px solid var(--border); padding-top: 2px; margin-top: 2px; }
-#skills button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 6px; padding: 0.6rem 0.6rem; cursor: pointer; }
-#skills button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
-#skills button[aria-current] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
-#skills mark { background: color-mix(in srgb, #d4a72c 45%, transparent); color: inherit; border-radius: 2px; }
-#skills .heading { display: flex; align-items: baseline; gap: 0.5rem; }
-#skills .name { font-weight: 600; overflow-wrap: anywhere; }
-#skills .copies { flex: none; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; }
-#skills .summary { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 0.1rem; }
+/* The skills, in the list or in a group. */
+.skills li + li { border-top: 1px solid var(--border); padding-top: 2px; margin-top: 2px; }
+.skills button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 6px; padding: 0.6rem 0.6rem; cursor: pointer; }
+.skills button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+.skills button[aria-current] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.skills mark { background: color-mix(in srgb, #d4a72c 45%, transparent); color: inherit; border-radius: 2px; }
+.skills .heading { display: flex; align-items: baseline; gap: 0.5rem; }
+.skills .name { font-weight: 600; overflow-wrap: anywhere; }
+.skills .copies { flex: none; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 0.45rem; }
+.skills .repository { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
+.skills .summary { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 0.1rem; }
 /* At most two lines; the title has the whole sentence. */
-#skills .summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.skills .summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+button.group { font: inherit; font-size: 0.85rem; margin-bottom: 0.75rem; padding: 0.25rem 0.8rem; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; }
+button.group:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#back { display: inline-block; font-size: 0.85rem; color: var(--accent); margin-bottom: 0.75rem; }
+#groups > li + li { margin-top: 1rem; }
+#groups h3 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.25rem; padding: 0 0.6rem; }
 article { padding: 1rem 2rem; overflow: auto; max-width: 60rem; }
 article h2 { margin: 0; }
 /* The name on the left, the last update in the top right corner. */

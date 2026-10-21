@@ -6,7 +6,7 @@ another site's page cannot reach it through a name of its own resolved to `127.0
 `<port>`: digits, 0 to 65535, 0 for any free one; else a clear message, exit code 1.
 `--port <port>` and `--no-cache` in any order, each once; other arguments: the usage, exit code 1.
 Each scan is a fresh one, but for the repositories of an organization being scanned (Organization
-page); going back to no repository stops waiting for a running one, and its result is not shown.
+page) and between a repository's skills and their groups (Groups); going back to no repository stops waiting for a running one, and its result is not shown.
 GitHub's answers come from the same [cache](cli.md#cache) as for `scan`, in the directory `serve`
 was started in, `--no-cache` the same way; *nothing else is stored*. `GITHUB_TOKEN` works as for `scan`.
 ## Page
@@ -50,12 +50,29 @@ was started in, `--no-cache` the same way; *nothing else is stored*. `GITHUB_TOK
   Scan button scan afresh; scanning anything else, or going back to no repository, stops it
 - The warnings, as the CLI prints them
 - GitHub answers no more → its message, red, above the repositories; the ones left: `not scanned`
+## Groups
+- A **Group skills** button above the skills, once the scan is over and found skills: a repository's
+  page (one from an organization's scan that still runs too: that repository is scanned); the
+  organization's page, done, stopped or GitHub answering no more: the skills of the repositories
+  scanned so far; while it runs, none; no skills, none
+- It opens their **groups** ([analysis.md](analysis.md), Group), *no new scan*:
+  `?source=<link>&view=groups`; `JetBrains/kotlin · 6 skills in 4 groups`, and `Back to skills`
+  (`Back to repositories` for an organization) to where the button was; the browser's Back too
+- Each group: `Testing · 3 skills`, in the order of the list of groups, Other last; no empty group
+- Its skills by **name**, as in the list: the name, the badge of its copies, the first sentence; for
+  an organization, by name then repository, each with its **repository** (`JetBrains/kotlin`),
+  muted: the same name in two repositories, two skills
+- A chosen skill: its SKILL.md as on the repository's page, its last update too; the first is
+  chosen at first; no filter
+- The organization's message stays above: `Stopped after 1 of 4 repositories`
+- A reload or a shared link scans again, and shows the groups once the scan is over; an
+  organization's page and progress meanwhile
 ## API
 - `GET /`: the page
 - `GET /api/scan?source=<link>`; not `HEAD`, which would scan for nothing → `{ repository, skills, warnings }`; each skill has its `link`,
   its first sentence as `summary`, its SKILL.md `text`, and that text's parts: the other front
   matter keys as `properties`, the Markdown `body`, its last update as `updated`, `{ date }` or
-  `{ error }`
+  `{ error }`, its group as `group`, `{ id, name, order }`, `order` its place in the list of groups
 - For an organization: `application/x-ndjson`, one JSON line at a time, each as soon as it is known:
   `{ organization, repositories }` (each `{ id, url }`), then for each repository as it is scanned
   `{ id, url, repository, skills, warnings }`, as for a repository, or
