@@ -102,6 +102,14 @@ async function openCommit(github: Client, id: string, ref: string, listing: List
       const { content } = await github.json<{ content: string }>(`${API}/repos/${id}/git/blobs/${blob}`);
       return new TextDecoder().decode(Uint8Array.from(atob(content.replace(/\s/g, '')), (char) => char.charCodeAt(0)));
     },
+    // The last commit, up to the scanned one, that changed the directory.
+    lastUpdate: async (directory) => {
+      const commits = await github.json<{ commit: { committer: { date: string } } }[]>(
+        `${API}/repos/${id}/commits?sha=${sha}${directory && `&path=${encodePath(directory)}`}&per_page=1`,
+      );
+      if (!commits.length) throw new AtlasError(`No commit changed ${directory} in https://github.com/${id} up to ${sha}`);
+      return new Date(commits[0].commit.committer.date).toISOString();
+    },
   };
 }
 

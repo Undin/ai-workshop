@@ -24,7 +24,8 @@ Undin/ai-workshop · 2 skills
 …
 ```
 
-Or in a local web view: a field for a repository link, its skills (with a filter) and their SKILL.md;
+Or in a local web view: a field for a repository link, its skills (with a filter) and their SKILL.md,
+with when each was last updated;
 for an organization, its repositories as they are scanned, each a link to its page from that scan,
 which goes on meanwhile (or stops, with Stop).
 
@@ -34,7 +35,8 @@ Skill Atlas: http://127.0.0.1:3000/
 ```
 
 Set `GITHUB_TOKEN` for a higher GitHub rate limit: without it, GitHub answers for about 30
-repositories of an organization an hour. `npm test` runs the tests; the web view's run in Chromium, after `npx playwright install chromium`.
+repositories of an organization an hour, fewer in the web view, which asks for each skill's last
+update too. `npm test` runs the tests; the web view's run in Chromium, after `npx playwright install chromium`.
 
 `npm run e2e` scans the repositories in [e2e/repos.json](e2e/repos.json), each pinned to a commit,
 and compares the output with [e2e/expected/](e2e/expected/); `UPDATE_EXPECTED=1 npm run e2e`
