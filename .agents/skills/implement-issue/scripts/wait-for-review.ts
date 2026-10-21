@@ -4,9 +4,8 @@
 // (printed as JSON, exit 0), the quiet period passes without any (`[]`, exit 2), or no more is to
 // come: the pull request is merged or closed, or approved by a maintainer (what is still
 // unanswered, exit 3). Exit 1: an error.
-import { execFile } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { promisify } from 'node:util';
+import { gh } from '../../../shared/gh.ts';
 
 /** How long to wait without new review before giving up (`--quiet`). */
 const QUIET_MINUTES = 30;
@@ -33,19 +32,8 @@ type Unanswered =
   | { kind: 'conversation' | 'review'; id: number; url: string; author: string; body: string };
 type Said = { author: string; url: string; body: string };
 
-const run = promisify(execFile);
-
 /** What `gh api <args>` answers, parsed. */
-async function api<T>(args: string[]): Promise<T> {
-  const path = args.at(-1)!;
-  try {
-    const { stdout } = await run('gh', ['api', ...args], { maxBuffer: 2 ** 28 });
-    return JSON.parse(stdout) as T;
-  } catch (error) {
-    const stderr = (error as { stderr?: string }).stderr?.trim();
-    throw new Error(`gh api ${path} failed${stderr ? `: ${stderr}` : ''}`);
-  }
-}
+const api = <T>(args: string[]) => gh<T>(['api', ...args], `api ${args.at(-1)}`);
 
 /** Every page of a list `gh api` answers, as one list. */
 const list = async <T>(path: string) => (await api<T[][]>(['--paginate', '--slurp', path])).flat();

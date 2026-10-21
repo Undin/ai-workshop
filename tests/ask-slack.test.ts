@@ -211,7 +211,7 @@ test('what Slack refuses: its error, and exit 1', async (t) => {
   const { code, stdout, stderr } = await ask(t, { post: { ok: false, error: 'not_in_channel' } });
   assert.equal(code, 1);
   assert.equal(stdout, '');
-  assert.equal(stderr, 'Slack chat.postMessage failed: not_in_channel\n');
+  assert.equal(stderr, 'Slack chat.postMessage failed: not_in_channel (invite the bot to the channel: /invite @<bot>)\n');
 });
 
 test('no token, no channel, a channel name for its ID, no question: what is wrong, and nothing posted', async (t) => {
