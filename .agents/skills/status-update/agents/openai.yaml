@@ -1,0 +1,3 @@
+interface:
+  display_name: "Status Update"
+  short_description: "Post to Slack what happened in the repository since a date: closed and in-progress issues, other pull requests"
