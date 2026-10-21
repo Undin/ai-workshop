@@ -18,7 +18,8 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${port}`, trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: `./skill-atlas serve --port ${port}`,
+    // No cache: each scenario judges a fresh scan, not an answer kept from an earlier run.
+    command: `./skill-atlas serve --port ${port} --no-cache`,
     cwd: root,
     url: `http://localhost:${port}/`,
     reuseExistingServer: false,

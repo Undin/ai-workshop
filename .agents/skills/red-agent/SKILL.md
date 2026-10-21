@@ -52,7 +52,8 @@ What makes a scenario worth playing:
 - **A real repository** that has what the scenario needs: look at it first with the CLI,
   `./skill-atlas scan <url> 2>/dev/null | grep -v '^  '` (`set -a; . ./.env; set +a` if there is a
   `.env`, for `GITHUB_TOKEN`). A local directory is fine too, made for the scenario under
-  `.red-agent/repos/<name>/`, for what no real repository has (a script in a SKILL.md).
+  `/tmp/red-agent/repos/<name>/`, for what no real repository has (a script in a SKILL.md): outside
+  the checkout, whose own scan (tests/scan.test.ts) would count its skills.
 - **Expected results that can be checked**: the texts the spec gives (`Showing 2 of 10 skills`,
   `No skills match <text>`), counts read from the page rather than fixed lists of a real
   repository, which changes.
