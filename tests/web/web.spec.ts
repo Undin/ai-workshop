@@ -3,7 +3,7 @@
 // In tests/web, not e2e/: these never reach the network; e2e/ is the CLI on real repositories.
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { atlas, EXAMPLE_COMMIT, FIXTURE, SLOW_ANSWER_MS } from '../helpers.ts';
+import { atlas, EXAMPLE_COMMIT, EXAMPLE_UPDATED, FIXTURE, SLOW_ANSWER_MS } from '../helpers.ts';
 
 /** Types the repository link into the field and scans it. */
 async function scan(page: Page, source: string, how: 'enter' | 'button' = 'enter') {
@@ -14,6 +14,7 @@ async function scan(page: Page, source: string, how: 'enter' | 'button' = 'enter
 
 const skills = (page: Page) => page.getByRole('list', { name: 'Skills' }).getByRole('button');
 const article = (page: Page) => page.getByRole('article');
+const updated = (page: Page) => article(page).locator('#skill-updated');
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -194,6 +195,50 @@ test("a chosen skill's SKILL.md: the front matter as a table, the body as Markdo
   await expect(article(page).locator('#skill-location').getByRole('link')).toHaveCount(0);
 });
 
+test('in the top right corner of the chosen skill: when it was last updated, the date in UTC, the time on hover; another skill, its own', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/dates');
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('first');
+  await expect(updated(page)).toHaveText('Updated 2026-10-14');
+  await expect(updated(page)).toHaveAttribute('title', '2026-10-14 12:53 UTC');
+  await expect(updated(page).locator('time')).toHaveAttribute('datetime', '2026-10-14T12:53:27.000Z');
+  // The top right corner: on the name's line, right of it, at the right edge of the SKILL.md.
+  const name = (await article(page).getByRole('heading', { level: 2 }).boundingBox())!;
+  const corner = (await updated(page).boundingBox())!;
+  const right = await article(page).evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    return box.right - parseFloat(node.ownerDocument.defaultView!.getComputedStyle(node).paddingRight);
+  });
+  expect(corner.x).toBeGreaterThan(name.x + name.width);
+  expect(Math.abs(corner.x + corner.width - right)).toBeLessThan(1);
+  expect(corner.y).toBeLessThan(name.y + name.height / 2);
+  // Another skill: its own date, in UTC (`2025-03-02T23:30:00-05:00`).
+  await skills(page).filter({ hasText: /^second/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2025-03-03');
+  await expect(updated(page)).toHaveAttribute('title', '2025-03-03 04:30 UTC');
+});
+
+test('the last update cannot be known → `Last update unknown`, why on hover', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/dates');
+  await skills(page).filter({ hasText: /^limited/ }).click();
+  await expect(updated(page)).toHaveText('Last update unknown');
+  await expect(updated(page)).toHaveAttribute('title', 'GitHub rate limit reached; try again in a minute');
+  await skills(page).filter({ hasText: /^uncommitted/ }).click();
+  await expect(updated(page)).toHaveText('Last update unknown');
+  await expect(updated(page)).toHaveAttribute(
+    'title',
+    `No commit changed .claude/skills/uncommitted in https://github.com/JetBrains/dates up to ${EXAMPLE_COMMIT}`,
+  );
+  // Known again for a skill that has it.
+  await skills(page).filter({ hasText: /^first/ }).click();
+  await expect(updated(page)).toHaveText('Updated 2026-10-14');
+});
+
+test('the last update in a directory: a date too', async ({ page }) => {
+  await scan(page, FIXTURE);
+  await expect(updated(page)).toHaveText(/^Updated \d{4}-\d{2}-\d{2}$/);
+  await expect(updated(page)).toHaveAttribute('title', /^\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/);
+});
+
 test('malformed front matter: the skill is still shown, under its directory name', async ({ page }) => {
   await scan(page, FIXTURE);
   await skills(page).filter({ hasText: /^release-checklist/ }).click();
@@ -330,6 +375,8 @@ test("a scanned repository is a link to its page, from the organization's scan; 
     'href',
     `https://github.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`,
   );
+  // Its last update, from the organization's scan.
+  await expect(updated(page)).toHaveText(`Updated ${EXAMPLE_UPDATED.date.slice(0, 10)}`);
   await expect(page.getByRole('list', { name: 'Repositories' })).toBeHidden();
   // Its warnings, from the organization's scan.
   await page.goBack();

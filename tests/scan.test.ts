@@ -316,7 +316,7 @@ test('a link outside the repository → a warning, not followed', () => {
   assert.doesNotMatch(fixture.stdout, /^outside\b/m);
 });
 
-test('the CLI prints the result at once and stores nothing', (t) => {
+test('the CLI prints the result at once; a local directory: nothing stored', (t) => {
   const cwd = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const scanned = spawnSync(process.execPath, [CLI, 'scan', FIXTURE], { cwd, encoding: 'utf8' });

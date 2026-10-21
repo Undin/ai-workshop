@@ -1,5 +1,5 @@
-// The local web view: the page in src/web, and the scan as JSON. The same core as the CLI;
-// nothing is stored, each scan is a fresh one.
+// The local web view: the page in src/web, and the scan as JSON, each skill with its last update.
+// The same core as the CLI; nothing is stored, each scan is a fresh one.
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,7 @@ export type ServerOptions = {
   open(input: string): Promise<Source | OrganizationSource>;
 };
 
-/** What GET /api/scan answers: the scan, each skill with its link and first sentence. */
+/** What GET /api/scan answers: the scan, each skill with its link, first sentence and last update. */
 export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link: string; summary: string })[] };
 /** What a request that cannot be answered gets instead. */
 export type ErrorAnswer = { error: string };
@@ -104,7 +104,7 @@ async function answerScan(source: string | null, open: ServerOptions['open'], re
   try {
     opened = await open(source.trim());
     if ('organization' in opened) return await streamOrganization(opened, response);
-    result = await scan(opened);
+    result = await scan(opened, { lastUpdates: true });
   } catch (error) {
     if (!(error instanceof AtlasError)) throw error;
     return send(response, 400, { error: error.message });
@@ -130,7 +130,7 @@ async function streamOrganization(source: OrganizationSource, response: ServerRe
   const write = (line: OrganizationLine) => response.write(`${JSON.stringify(line)}\n`);
   write({ organization: source.organization, repositories: source.repositories.map(({ id, url }) => ({ id, url })) });
   try {
-    for await (const scanned of scanOrganization(source)) {
+    for await (const scanned of scanOrganization(source, { lastUpdates: true })) {
       if (gone) return;
       write('error' in scanned ? scanned : { id: scanned.id, url: scanned.url, ...scanAnswer(scanned.result) });
     }
