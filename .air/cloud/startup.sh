@@ -8,7 +8,7 @@ if [ "${AIR_STARTUP_MODE:-}" = warmup ]; then WARMUP=1; else WARMUP=; fi
 cd "$(dirname "$0")/../.."
 
 # The environment, not the code (CI tests that): the toolchain typechecks, the real CLI runs on the
-# fixture repository, Chromium launches.
+# fixture repository, Chromium launches, ffmpeg runs.
 healthcheck() {
   echo "[healthcheck] typecheck"
   npm run typecheck
@@ -17,6 +17,8 @@ healthcheck() {
   ./skill-atlas scan ./fixture
   echo "[healthcheck] chromium launches"
   node -e "const { chromium } = await import('@playwright/test'); await (await chromium.launch()).close()"
+  echo "[healthcheck] ffmpeg runs"
+  ffmpeg -version >/dev/null
   echo "[healthcheck] OK"
 }
 
@@ -41,6 +43,17 @@ else
   sudo -n env PATH="$PATH" npx playwright install-deps chromium
 fi
 echo "[startup] chromium installed"
+
+# ffmpeg for the demos (npm run demo): the waits a demo plays faster (faster() in demos/demo.ts)
+if ! command -v ffmpeg >/dev/null; then
+  echo "[startup] ffmpeg"
+  if [ "$(id -u)" -eq 0 ]; then
+    apt-get update && apt-get install --yes --no-install-recommends ffmpeg
+  else
+    sudo -n apt-get update && sudo -n apt-get install --yes --no-install-recommends ffmpeg
+  fi
+  echo "[startup] ffmpeg installed"
+fi
 
 if [ -n "$WARMUP" ]; then healthcheck; fi
 echo "[startup] done"
