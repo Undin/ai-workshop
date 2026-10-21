@@ -1,0 +1,2 @@
+# The demos' recordings (demos/<name>/cache/): GitHub's answers, recorded by npm run demo:record, not read in a diff.
+demos/*/cache/** -diff linguist-generated

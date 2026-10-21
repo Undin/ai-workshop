@@ -1,13 +1,24 @@
 ---
 name: demo-feature
-description: "Record a demo of a new or changed feature of the web view, to check it on a real repository: a Playwright script, demos/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm) and screenshots of its key points (demos/out/<name>/<nn>-<point>.png), looked at locally and never committed, nor shown in the pull request. Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
+description: "Record a demo of a new or changed feature of the web view, to check it on a real repository: a Playwright script, demos/<name>/<name>.demo.ts, that plays exactly that feature on a real repository with a visible pointer, GitHub answering from its recording (demos/<name>/cache/, recorded once, then replayed with no network), asserts what it shows, plays the waits where nothing happens faster, and saves a video (demos/out/<name>.webm, looked at locally, never committed) and screenshots of its key points (demos/<name>/screenshots/<nn>-<point>.png, committed with it). Use when a change is visible in the web view (src/web/, spec/web.md), from implement-issue or when the user asks for a demo, a video or screenshots of a feature; skip when nothing a user sees in the browser changed."
 ---
 
 Takes the feature (an issue, a pull request, or the spec cases of the change) and makes a demo of
 it, with the helpers in [demos/demo.ts](../../../demos/demo.ts) and the config in
 [demos/playwright.config.ts](../../../demos/playwright.config.ts). The existing demos are the
-examples to follow: [filter.demo.ts](../../../demos/filter.demo.ts),
-[organization.demo.ts](../../../demos/organization.demo.ts).
+examples to follow: [filter.demo.ts](../../../demos/filter/filter.demo.ts),
+[organization.demo.ts](../../../demos/organization/organization.demo.ts).
+
+A demo is a directory, `demos/<name>/`:
+
+- `<name>.demo.ts`: the script
+- `cache/`: GitHub's answers it gets, recorded (`npm run demo:record -- <name>`) and committed; a
+  demo replays them, with no network and no token, the same every time
+- `recording.json`, if needed ([demos/recording.ts](../../../demos/recording.ts)):
+  `repositories`, an organization cut to the ones named (a few small ones; the whole one would
+  be megabytes), and `latency`, each replayed answer that many milliseconds late, for a scan that
+  must still be running when the demo acts on it (Stop)
+- `screenshots/`: its key points, committed
 
 **Is there anything to demo?** Only what a user sees in the browser: a change of `src/web/` or of
 `spec/web.md`. A CLI-only change, a refactoring, tests, CI, docs: no demo; say so and stop.
@@ -24,28 +35,33 @@ A changed feature that already has a demo: update that demo instead of adding on
 
 ### 2. Pick a real repository
 
-The demo runs the real `./skill-atlas serve` on GitHub, as a user would: it needs the network and
-`GITHUB_TOKEN` (`set -a; . ./.env; set +a` if there is a `.env`).
+The demo runs the real web view ([demos/serve.ts](../../../demos/serve.ts)) on a real repository, as a
+user would: recorded once from GitHub, with the network and `GITHUB_TOKEN`
+(`set -a; . ./.env; set +a` if there is a `.env`), then replayed.
 
 - Choose a repository (or an organization) where the feature shows well: enough skills, the
   inputs that exercise each case. Look at it first with the CLI:
   `./skill-atlas scan <url> 2>/dev/null | grep -v '^  '`, and choose the inputs (filter texts,
   links to click) from what it prints.
-- A real repository changes. **Assert what the feature does, not which data the repository has**:
+- Keep the recording small: a few MB at most (`du -sh demos/<name>/cache`); a huge tree or commit
+  in it is a repository to leave out.
+- A recording made anew has what the repository has by then. **Assert what the feature does, not
+  which data the repository has**:
   counts read from the page (`Showing ${kept} of ${all}`), regular expressions for numbers and
   names, "every kept row has a marked match", not a fixed list of skills.
 
-### 3. Write demos/<name>.demo.ts
+### 3. Write demos/<name>/<name>.demo.ts
 
 `<name>`: the feature, short, kebab-case. A comment at the top: the feature, its spec section and
-the issue (`#<n>`), the repository it runs on. Import from `./demo.ts`, not `@playwright/test`:
+the issue (`#<n>`), the repository it runs on. Import from `../demo.ts`, not `@playwright/test`:
 
-- `test`: records the page into `demos/out/<name>.webm` with an animated pointer, a click marker
-  and a highlight of the element acted on; no callout with the action's name.
+- `test`: the demo's web view, GitHub answering from its recording, and the page recorded into
+  `demos/out/<name>.webm` with an animated pointer, a click marker and a highlight of the element
+  acted on; no callout with the action's name. A request not recorded fails the demo.
 - `type(field, text, delay?)`: clicks the field (so the pointer goes there), clears it, types it
   key by key. Never `fill()`: the viewer must see the typing.
 - `pause(page, ms?)`: after each result, time to read it (1 to 3 s).
-- `keyPoint(page, name)`: a screenshot, `demos/out/<name>/<nn>-<point>.png`, numbered in order. Take it
+- `keyPoint(page, name)`: a screenshot, `demos/<name>/screenshots/<nn>-<point>.png`, numbered in order. Take it
   **right after the assertions** of that moment, so it shows a checked state; `<point>` says
   what it shows (`filtered-by-editor`, `stopped`).
 - `faster(page, factor, wait)`: a wait where nothing happens (a scan, a list loading) plays
@@ -75,14 +91,15 @@ What makes a demo readable, learned the hard way:
 
 ```bash
 npm run typecheck
-npm run demo -- <name>        # all demos: npm run demo
+npm run demo:record -- <name> # GitHub's answers, once, and after a change that asks GitHub for others
+npm run demo -- <name>        # replayed; all demos: npm run demo
 ```
 
 A failing assertion is either a demo bug or a feature bug: fix the demo, or stop and report the
 feature bug (implement-issue: back to its step 4); never loosen an assertion to get a video.
 
 Then **look at it**; a passing demo can still be a bad video. You can't play a video: look at
-its frames and at every screenshot, `demos/out/<name>/` (Read the PNGs):
+its frames and at every screenshot, `demos/<name>/screenshots/` (Read the PNGs):
 
 ```bash
 ffprobe -v error -show_entries format=duration -of csv=p=0 demos/out/<name>.webm
@@ -97,15 +114,13 @@ on screen long enough; nothing important is cut off or below the fold; no stretc
 
 ### 5. Commit
 
-The demo script, `demos/<name>.demo.ts`, in one commit (`Demo: <the feature> (#<n>)`);
-`demos/out/` is never committed.
+The demo, `demos/<name>/`, its script, recording and screenshots, in one commit
+(`Demo: <the feature> (#<n>)`); its video, `demos/out/`, is never committed.
 
-Its video and screenshots are for looking at: not committed, nor put in the pull request. The
-Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)) records every demo on GitHub, but
-only by hand (`gh workflow run Demos --ref <branch>`): on pull requests, its scans got 429 from
-GitHub's code search too often to be a check (#27).
+The Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)) runs every demo on each pull
+request, from its recording, its video and screenshots artifacts: a check like CI.
 
 ### 6. Report
 
 The demo's file, its length (seconds; sped-up parts with their factors), the key points with their
-screenshots, `demos/out/<name>/`, and anything it could not show.
+screenshots, `demos/<name>/screenshots/`, the size of its recording, and anything it could not show.

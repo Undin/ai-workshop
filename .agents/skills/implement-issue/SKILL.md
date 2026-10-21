@@ -94,8 +94,8 @@ comment instead of posting a new one.
 - **Demo**: if the change adds a feature visible in the web view or changes one (`src/web/`,
   `spec/web.md`), follow [demo-feature](../demo-feature/SKILL.md) once the feature's tests pass:
   a new demo, or the feature's existing one updated, of exactly the spec cases, green and looked at
-  locally, the script committed (its video and screenshots never are). Nothing visible changed: no
-  demo.
+  locally, its script, recording and screenshots committed (its video never is). Nothing visible
+  changed: no demo.
 - **Commit** as you go, in a few logical steps as AGENTS.md describes (e.g. the spec with the
   feature and its tests, then the e2e expectations, then the docs). Messages in the style of
   `git log`; reference the issue (`#<n>`).
@@ -106,7 +106,7 @@ comment instead of posting a new one.
 npm run typecheck
 npm test
 npm run e2e   # when the change touches scanning; needs the network and GITHUB_TOKEN
-npm run demo -- <name>   # each demo of step 4; needs the network and GITHUB_TOKEN
+npm run demo -- <name>   # each demo of step 4, from its recording (demo-feature)
 ```
 
 Fix with new commits and re-run until all are green. Never weaken, skip or delete a test to get
@@ -123,9 +123,8 @@ gh pr checks <pr> --watch
 
 Once the pull request exists, edit the issue's status comment: `🛠️ Implementing this in <pr url>.`
 
-The demos are not among the checks: the Demos workflow
-([demos.yml](../../../.github/workflows/demos.yml)) runs only by hand, and the pull request shows no
-demo.
+The demos are among the checks: the Demos workflow
+([demos.yml](../../../.github/workflows/demos.yml)) runs each one from its recording.
 
 A red check: read it (`gh run view <run-id> --log-failed`), reproduce it locally, fix it with a
 **new commit** (no force-push), push, and watch again, until every check is green.
