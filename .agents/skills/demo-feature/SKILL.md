@@ -114,8 +114,9 @@ on screen long enough; nothing important is cut off or below the fold; no stretc
 
 ### 5. Commit
 
-The demo, `demos/<name>/`, its script, recording and screenshots, in one commit
-(`Demo: <the feature> (#<n>)`); its video, `demos/out/`, is never committed.
+The demo, `demos/<name>/`, its script, recording and screenshots, and its section in
+[demos/README.md](../../../demos/README.md) showing them (a changed demo: its section updated), in
+one commit (`Demo: <the feature> (#<n>)`); its video, `demos/out/`, is never committed.
 
 The Demos workflow ([demos.yml](../../../.github/workflows/demos.yml)) runs every demo on each pull
 request, from its recording, its video and screenshots artifacts: a check like CI.
