@@ -1,5 +1,5 @@
 // The screenshots of the demos' key points that are committed, demos/<name>/screenshots/: the ones
-// the Demos workflow took on this branch's last commit, pushed, its run green, not a local run's.
+// the Demos workflow took on the last commit, pushed, its run green, not a local run's.
 //   npm run demo:screenshots
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
@@ -10,14 +10,13 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const run = (command: string, args: string[]) => execFileSync(command, args, { cwd: ROOT, encoding: 'utf8' }).trim();
 
 const head = run('git', ['rev-parse', 'HEAD']);
-const branch = run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
 const runs = JSON.parse(
-  run('gh', ['run', 'list', '--workflow', 'Demos', '--branch', branch, '--commit', head, '--json', 'databaseId,status,conclusion']),
+  run('gh', ['run', 'list', '--workflow', 'Demos', '--commit', head, '--json', 'databaseId,status,conclusion']),
 ) as { databaseId: number; status: string; conclusion: string }[];
 const green = runs.find((demos) => demos.conclusion === 'success');
 if (!green) {
   const states = runs.map((demos) => demos.conclusion || demos.status).join(', ') || 'none';
-  throw new Error(`No green Demos run on ${head.slice(0, 7)} (${branch}): ${states}; push it and wait for it`);
+  throw new Error(`No green Demos run on ${head.slice(0, 7)}: ${states}; push it and wait for it`);
 }
 
 const downloaded = mkdtempSync(join(tmpdir(), 'skill-atlas-screenshots-'));
