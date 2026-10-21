@@ -51,9 +51,11 @@ test('the skill list', async ({ page }) => {
   await keyPoint(page, 'the-list');
   await pause(page, 2500);
 
-  // One copy, then two.
-  const one = badged.filter({ has: page.locator('.copies', { hasText: '+1 copy' }) }).first();
-  await choose(page, one, 'one-copy');
-  const two = badged.filter({ has: page.locator('.copies', { hasText: '+2 copies' }) }).first();
-  await choose(page, two, 'two-copies');
+  // A skill with copies, then one whose badge says another count, if any: what the page shows,
+  // not which skills the repository has.
+  const first = badged.first();
+  await choose(page, first, 'copies');
+  const badge = (await first.locator('.copies').textContent())!;
+  const others = badged.filter({ hasNot: page.locator('.copies', { hasText: new RegExp(`^${RegExp.escape(badge)}$`) }) });
+  if (await others.count()) await choose(page, others.first(), 'other-copies');
 });
