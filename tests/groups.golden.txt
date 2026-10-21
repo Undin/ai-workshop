@@ -1,0 +1,217 @@
+# The 215 skills of JetBrains' repositories in the clustering plan of #38 (repo | name | group | description,
+# cut at 150 characters), each with the group it gets, checked by hand: tests/group.test.ts.
+Exposed | fix-bug | issues | End-to-end bug fix workflow for the Exposed project. Accepts a GitHub issue (#NUMBER), YouTrack issue (EXPOSED-NUMBER), or YouTrack URL (https://youtr
+Exposed | migrate-to-1.0 | migration | Migrates a Kotlin project from Exposed 0.61.0 to Exposed 1.0. Scans Kotlin sources and build files, applies the mechanical changes documented in the o
+MPS | actions | ide-plugins | Guidelines for implementing IntelliJ actions (AnAction). Use those rules when you need to create or change an action in the intellij platform.
+MPS | bugfix-workflow | issues | Structured MPS bugfix workflow driven by a YouTrack issue ID - preflight tool checks, version/branch derivation, parallel-agent problem analysis, solu
+MPS | code-style | review | Code style rules for IntelliJ codebase. Use when writing or reviewing code for style compliance.
+MPS | commits | git | Use this skill whenever the user asks to commit changes, write or fix a commit message, amend or rename a commit, or do a workflow that includes commi
+MPS | debugging | debugging | Debugging techniques and tools for IntelliJ development. Use when debugging IDE issues or investigating failures.
+MPS | mps-aspect-accessories | language-engineering | Wire MPS module and model dependencies, used languages, used devkits, extended languages, runtime solutions, accessory models, and language/dependency
+MPS | mps-aspect-actions | language-engineering | Use when defining or editing MPS node factories (the "actions" aspect) - `NodeFactories` roots, per-concept `NodeFactory` setup functions that initial
+MPS | mps-aspect-behavior | language-engineering | Use when defining or editing MPS `ConceptBehavior` - per-concept methods (non-virtual / virtual / abstract / static / virtual static), constructors, v
+MPS | mps-aspect-constraints | language-engineering | Use when defining or editing MPS language constraints - property validators / setters / getters, referent search scopes (imperative or inherited via `
+MPS | mps-aspect-dataflow | language-engineering | Use when defining or debugging MPS dataflow builders for a concept - control/data flow declarations that drive reachability analysis and variable-use 
+MPS | mps-aspect-editor | language-engineering | Use when creating or changing MPS editor definitions - the overall workflow from scaffolding a `ConceptEditorDeclaration` through componentizing reusa
+MPS | mps-aspect-editor-menus-and-keymaps | language-engineering | Use when authoring the **non-layout** parts of the MPS editor aspect - what happens when the user types, presses a key, triggers completion, pastes, o
+MPS | mps-aspect-generation-plan | language-engineering | Use when defining or modifying an MPS generation plan - explicit ordering of generators, checkpoints for cross-model reference resolution, forks for p
+MPS | mps-aspect-generator | language-engineering | Use when defining or modifying MPS generators - author a generator module, add or edit root/reduction/weaving/pattern mapping rules, attach template m
+MPS | mps-aspect-intentions | language-engineering | Use when defining or editing MPS intentions (the Alt+Enter context-action aspect) - adding `IntentionDeclaration` roots, parameterized or surround-wit
+MPS | mps-aspect-migrations | language-engineering | Use when authoring or debugging MPS migration scripts that upgrade user models after a language definition changes - covers jetbrains.mps.lang.migrati
+MPS | mps-aspect-structure-concepts | language-engineering | Define concepts, interface concepts, enumerations, and constrained data types in an MPS language's `structure` aspect. Covers smart-reference detectio
+MPS | mps-aspect-textgen | language-engineering | Use when authoring or debugging MPS TextGen - concept-to-plain-text serialisation for languages whose final output is text (source files, config, scri
+MPS | mps-aspect-typesystem | language-engineering | Use when authoring or debugging MPS typesystem - inference rules (`typeof :==: / :<=: / :>=:`), `SubtypingRule`, `ComparisonRule`, `InequationReplacem
+MPS | mps-baselanguage | language-engineering | Author and edit MPS `jetbrains.mps.baseLanguage` (Java) nodes - choose between the Java parser and JSON AST blueprints, map Java syntax to baseLanguag
+MPS | mps-build-language | language-engineering | Use when authoring or modifying MPS Build Language scripts (`BuildProject` roots) - the declarative DSL that generates Ant `build.xml` to package MPS 
+MPS | mps-collections-and-closures | language-engineering | Use when writing or editing MPS BaseLanguage code that uses the `collections` and `closures` language extensions - in behavior methods, typesystem and
+MPS | mps-console | language-engineering | Run or generate MPS Console code and `jetbrains.mps.lang.smodel.query` queries in MPS intentions, behavior, actions, generators, and BaseLanguage. Cov
+MPS | mps-distribution-build | build-ci | Use when bundling a new plain Java/Kotlin plugin into MPS distribution archives, debugging packaging/layout issues in `build/mps*.xml`, tracing where 
+MPS | mps-dsl-memory | language-engineering | Create or refresh project-local DSL skills under `.agents/skills/<dsl-name>-dsl/` for one or more MPS languages after discovering concepts, sandbox ex
+MPS | mps-ide-plugin | ide-plugins | Use when authoring or modifying MPS IDE plugins - code that integrates with the MPS / IntelliJ host IDE shell. Covers ActionDeclaration, ActionGroupDe
+MPS | mps-lang-core-xml | language-engineering | Use when authoring XML documents as MPS root nodes or building XML-generating generator templates with jetbrains.mps.core.xml - covers XmlFile, XmlDoc
+MPS | mps-language-analysis | language-engineering | Analyze an MPS language by name - discover concepts, properties, references, children, aspects (editor/constraints/behavior), metadata, and answer typ
+MPS | mps-language-aspects-overview | language-engineering | Entry point for authoring or modifying an MPS language - index of all aspects (structure, editor, constraints, behavior, typesystem, intentions, actio
+MPS | mps-language-inheritance | language-engineering | Investigate inheritance between MPS languages and between concepts - extended languages, superconcepts, implemented interfaces, sub-/assignable concep
+MPS | mps-language-modularity | language-engineering | Use when designing how multiple MPS languages relate or compose - choosing between language referencing, extension, reuse, and embedding, or deciding 
+MPS | mps-mcp-workflow | language-engineering | Complete JetBrains MPS workflow guide for DSL projects - models, languages, generators, node JSON blueprints, type queries, validation, MPS MCP tool u
+MPS | mps-model-manipulation | language-engineering | Use when writing or editing MPS BaseLanguage code that lives inside a model - behavior methods, typesystem rules, checking rules, generator queries, c
+MPS | mps-node-editing | language-engineering | Add, update, or delete MPS nodes using JSON blueprints - covers the unified blueprint format, staged construction for large subtrees, validation, and 
+MPS | mps-project-management | language-engineering | Open an MPS project in a running or freshly started MPS instance when MCP tools fail because no project is open (welcome screen), close an open projec
+MPS | mps-quotations | language-engineering | Use when writing or debugging MPS quotations and anti-quotations - "node literals" that create SNode trees inline in behavior, typesystem, intentions,
+MPS | mps-run-configurations | language-engineering | Create and execute IDE run configurations for MPS root nodes via MPS MCP - Java Application for `IMainClass` / `ClassConcept` with `main`, JUnit Tests
+MPS | mps-tests | language-engineering | Use when writing or modifying tests inside MPS `@tests` models - `NodesTestCase` (typesystem, constraints, scopes, dataflow, generator output), `Edito
+MPS | registry | ide-plugins | Guidelines for using the IntelliJ Registry API. Use when working with registry keys or feature flags.
+MPS | skill-optimization-study | performance | Re-runnable measurement loop for agent-driven JetBrains MPS work over mps_mcp_* tools - baseline headless worker runs on fixed scenarios, server call 
+MPS | ssr | search | Guide for using Structural Search and Replace in IntelliJ. Use when creating or modifying SSR inspections or search patterns.
+MPS | teamcity-cli | build-ci | Use when working with TeamCity CI/CD or when user provides a TeamCity build URL. Use `teamcity` CLI for builds, logs, jobs, queues, agents, and pipeli
+aspire-plugin | changelog | releases | Update CHANGELOG.md with a new release section from the latest GitHub release
+aspire-plugin | update-aspire | build-ci | Update Aspire version across CI, NuGet constants, proto file, and all test/sample projects
+aspire-plugin | update-intellij-sdk-eap | build-ci | Update this Aspire plugin to the newest Rider and IntelliJ IDEA EAPs for a user-selected release line, then build and repair clear SDK-upgrade regress
+azure-tools-for-intellij | changelog | releases | Update CHANGELOG.md with a new release section from the latest GitHub release
+azure-tools-for-intellij | sync-upstream-release | releases | Merge a selected azure-tools-for-java release branch into the Azure Toolkit fork, update its upstream-release metadata and changelog, then open a pull
+azure-tools-for-intellij | update-intellij-sdk-eap | build-ci | Update Azure Toolkit for Rider to the newest Rider EAP in a selected release line, then build and repair clear SDK-upgrade regressions.
+compose-swing-ui | verify-code-quality | review | Run lint, static analysis, ABI validation and coverage gates for compose-swing-ui. Use when checking code quality, fixing style issues, or before comm
+context | blast-radius | search | Experimental jbcontext org-wide blast-radius analysis across multiple repositories. Use when Codex needs to estimate the impact of changing an API, en
+context | context-install | workflow | Install jbcontext and complete first-time setup - login and configure agent integration. Use when `jbcontext` is not found or the user asks to install
+context | context-integrate | search | Fit jbcontext into a repository's own agent guide by writing short repo notes. Use when the user asks to integrate jbcontext with this repository, or 
+context | context-research | search | Research and understand unfamiliar codebases using semantic search with `jbcontext search`
+context | context-review | review | Use this skill to review code changes using semantic search to understand context and impact
+context | context-search | search | Semantic code search for discovering and understanding code by meaning rather than keywords.\n- Use this skill when you need to find code whose locati
+context | dependency-search | search | Experimental jbcontext org-wide dependency search across multiple repositories. Use when need to find APIs in other repositories, or dependency config
+context | org-search | search | Experimental jbcontext org-wide semantic search across multiple repositories
+datalore-skills | datalore-notebook | data | Work with Datalore workspaces and notebooks through the bundled CLI. Use workspace commands for workspace-scoped resources and notebook commands for n
+educational-plugin | drop-platform-support | migration | Drops support for an old IntelliJ platform version in the JetBrains Academy plugin - removes `branches/<old>` code, moves shared platform-specific cod
+ghostty | writing-commit-messages | git | Writes Git commit messages. Activates when the user asks to write a commit message, draft a commit message, or similar.
+go-modern-guidelines | use-modern-go | languages | Use the Modern Go Guidelines CLI whenever writing, modifying, fixing, or refactoring Go code. Apply its version-specific guidance to generated changes
+godot-support | godot-trace | debugging | Trace a running Rider to debug Godot or GDScript behaviour that fails only in the IDE.
+harbor | create-adapter | ml | Scaffold a new Harbor benchmark adapter by running `harbor adapter init` and then guide implementation using the Adapters Agent Guide as the authorita
+harbor | create-task | ml | Create a new Harbor task for evaluating agents. Use when the user wants to scaffold, build, or design a new task, benchmark problem, or eval. Guides t
+harbor | harbor-exec | ml | Use when working with Harbor's `harbor exec` CLI workflow: compiling files, directories, or globs into Harbor tasks; running map jobs; configuring art
+harbor | publish | releases | Publish a Harbor task or dataset to the registry. Use when the user wants to upload, publish, or share tasks or datasets/benchmarks on the Harbor regi
+harbor | rewardkit | ml | Write Harbor task verifiers using Reward Kit. Use when creating or editing a task's tests/ directory, adding grading criteria, setting up LLM/agent ju
+harbor | upload-parity-experiments | ml | Create or reuse Hugging Face dataset PRs for `harborframework/parity-experiments` and upload Harbor parity/oracle result folders efficiently with spar
+hexana | wasm-inspector | debugging | Use when inspecting or reasoning about a WebAssembly binary or component (.wasm) - imports/exports, functions, memories, globals, tables, element/data
+himark | skia-add-test | testing | Add a new test to the Skia repository. Use this skill when you need to create a new unit or integration test in the tests/ directory and ensure it's p
+himark | skia-gn-workflow | build-ci | MANDATORY: Use this skill for ANY and ALL tasks involving building Skia with GN, Ninja, or compiling any Skia tool. It is the authoritative source for
+ideavim | changelog | releases | Maintains the IdeaVim changelog (CHANGES.md). Use when updating the changelog, documenting releases, or reviewing commits/PRs for changelog entries.
+ideavim | doc-sync | docs | Keeps IdeaVim documentation in sync with code changes. Use this skill when you need to verify documentation accuracy after code changes, or when check
+ideavim | extensions-api-migration | migration | Migrates IdeaVim extensions from the old VimExtensionFacade API to the new @VimPlugin annotation-based API. Use when converting existing extensions to
+ideavim | git-workflow | git | IdeaVim git workflow conventions covering commits, branches, PRs, and CI. Use when creating commits, managing branches, creating pull requests, review
+ideavim | issues-deduplication | issues | Handles deduplication of YouTrack issues. Use when cleaning up duplicate issues, consolidating related bug reports, or organizing issue tracker.
+ideavim | tests-maintenance | testing | Maintains IdeaVim test suite quality. Reviews disabled tests, ensures Neovim annotations are documented, and improves test readability. Use for period
+ij-perf-report-aggregator | add-dashboard-category | data | Add a new top-level dashboard category with database mapping, tests page, and empty dashboard
+ij-perf-report-aggregator | add-dashboard-page | data | Add a new page (tab) to an existing dashboard category
+ij-perf-report-aggregator | clickhouse-update | data | Evaluate and ship a ClickHouse version update - restore-compat check, dashboard-query benchmark against prod version, evaluation record, prod rollout
+intellij-community | actions | ide-plugins | Implement or change IntelliJ `AnAction` actions and registrations.
+intellij-community | bazel-test-migration | build-ci | Migrate IntelliJ JPS module tests to Bazel; debug Bazel-only failures.
+intellij-community | code-style | review | Apply IntelliJ Kotlin and Java code style when writing or reviewing.
+intellij-community | commits | git | Create, amend, or rename IntelliJ commits and write commit messages.
+intellij-community | compare-python-typecheckers | languages | Compare Python type inference with ty, pyrefly, and basedpyright.
+intellij-community | conda-env-tests | testing | Bump the pinned Miniconda version for the Python conda env tests.
+intellij-community | debugging | debugging | Debug IntelliJ IDE failures with repository-specific techniques.
+intellij-community | driver-ui-tests | testing | Write IntelliJ UI tests with IDE Starter or UI Driver.
+intellij-community | eel | ide-plugins | Use IntelliJ EEL APIs for process execution, paths, WSL, or Docker.
+intellij-community | extract-module | build-ci | Extract optional plugin dependencies into IntelliJ content modules.
+intellij-community | fix-project-leak-from-tc-report | debugging | Fix TeamCity project-leak test failures end to end.
+intellij-community | icon-resources | ide-plugins | Manage IntelliJ icons, generated Icons classes, and icon-robots rules.
+intellij-community | icons | ide-plugins | Create or review IntelliJ New UI SVG icons and theme variants.
+intellij-community | ide-diagnostics-mcp | debugging | Inspect a running IntelliJ IDE for freezes or blocked threads via MCP.
+intellij-community | jewel-markdown | ide-plugins | Build or debug Jewel Markdown parsing, rendering, and styling.
+intellij-community | jewel-release | releases | Prepare a Jewel PR or release: checks, release notes, cherry-picks, tagging.
+intellij-community | jna | languages | Implement or debug JNA bindings and ABI layouts in Kotlin or Java.
+intellij-community | kotlin-ui-dsl | ide-plugins | Write IntelliJ dialogs and settings with Kotlin UI DSL v2 panels.
+intellij-community | kotlin-ui-swing-component-architecture | ide-plugins | Design IntelliJ Swing UI components, state flow, and EDT work.
+intellij-community | markdown-library-update | build-ci | Update markdown-jvm and regenerate Bazel/Fleet metadata.
+intellij-community | modcommand-migration | migration | Convert LocalQuickFix or IntentionAction to the ModCommand API.
+intellij-community | module-dependencies | build-ci | Add or modify IntelliJ module dependencies in `.iml` files.
+intellij-community | module-set-pluginization | build-ci | Convert Product DSL module sets into bundled wrapper plugins.
+intellij-community | notebook-for-experiment | data | Create reproducible Jupyter notebooks for performance experiments.
+intellij-community | platform-coroutines-structured-concurrency | languages | Write or review IntelliJ coroutine scope ownership and cancellation.
+intellij-community | plugin-model-analyzer | search | Query IntelliJ Product DSL modules, products, and plugin graphs.
+intellij-community | poly-context | ide-plugins | Implement PolyContext feature gating and environment detection.
+intellij-community | poly-symbols | ide-plugins | Implement PolySymbols completion, references, and rename.
+intellij-community | pseudo-kmp | languages | Create or modify IntelliJ pseudo-KMP expect/actual modules.
+intellij-community | py-code-insight-counters | performance | Count Python code insight work in tests with PyCodeInsightCounters.
+intellij-community | registry | ide-plugins | Use the IntelliJ Registry API for registry keys and feature flags.
+intellij-community | rust-code-style | review | Write or review Rust in the build tools.
+intellij-community | safe-push | git | Push IntelliJ repository changes through the Safe Push workflow.
+intellij-community | sibling-checkout-commits | git | Take commits from a sibling checkout as patches, without a fetch.
+intellij-community | ssr | search | Create or modify IntelliJ Structural Search and Replace patterns.
+intellij-community | symbols-api | ide-plugins | Use IntelliJ Symbol API for declarations, references, and rename.
+intellij-community | testing | testing | Run or troubleshoot IntelliJ tests with `bt.cmd` or `tests.cmd`.
+intellij-community | testing-internals | testing | Debug IntelliJ `bt.cmd` and `tests.cmd` runs, discovery, and runner internals.
+intellij-community | ui-accessibility | review | Review IntelliJ UI accessibility for keyboard, focus, and labels.
+intellij-community | writing-tests | testing | Write IntelliJ JUnit 5 tests with fixtures, lifecycle, and EDT.
+intellij-community | youtrack-community | issues | YouTrack CLI for a community checkout; the monorepo uses `youtrack`.
+junie | junie | workflow | Delegate a coding goal to the JetBrains Junie CLI.
+junie-extensions | android | languages | Senior Android engineer workflows - Kotlin-first (Java legacy supported), Jetpack Compose + View system, MVVM, Coroutines/Flow, Room, Retrofit, Hilt, 
+junie-extensions | context7 | languages | Up-to-date library and framework documentation via Context7 MCP. Use when setup, API, or version-specific questions require current documentation.
+junie-extensions | java-engineer | languages | Java 17–25 policy and pitfalls. Use when writing, reviewing, or refactoring Java code - enforces idioms around records, sealed types, switch exhaustiv
+junie-extensions | kotlin-engineer | languages | Kotlin 2.x policy and pitfalls. Use when writing, reviewing, or refactoring Kotlin code - enforces coroutine-safety, Flow correctness, null-safety, an
+junie-extensions | laravel-engineer | languages | Use when working on Laravel projects. Covers architecture decisions (Services vs Actions), thin controllers, Form Requests, API Resources, and API ver
+junie-extensions | php-engineer | languages | Modern PHP 8.x policy and pitfalls. Use when writing, reviewing, or refactoring PHP code - enforces strict types, enum/readonly/match/DNF policy, PHPS
+junie-extensions | redis-best-practices | data | Redis policy & pitfalls - key naming, atomicity, TTL strategy, distributed locks, cache patterns, production traps. Use when designing Redis-backed ca
+junie-extensions | spring-boot-engineer | languages | Use when building, modifying, or reviewing Spring Boot 4.x applications (Spring Framework 7, Spring Security 7, Hibernate 7, Jackson 3) in Java or Kot
+junie-extensions | sql-patterns | data | SQL policy & pitfalls - query correctness, indexing strategy, safe migrations. Use when writing SQL, diagnosing slow queries, designing schemas, or re
+klibs-io | kotlin-multiplatform-libraries-expert | languages | Use when the user asks to discover, compare, upgrade, audit, or add Kotlin Multiplatform (KMP) libraries; needs latest/stable Maven or Gradle coordina
+koog | add-java-code-snippets-in-docs | docs | Use when the user asks to add Java tabs/examples to mkdocs docs that already have Kotlin examples (files under docs/docs/**.md using === "Kotlin" / Kn
+koog | split-jvm-nonjvm | migration | Splits a class or several classes in the common source set commonMain into JVM and non-JVM parts into jvmCommonMain and nonJvmCommonMain. This is used
+kotlin | analysis-api-create-cherry-pick-issue | issues | Create a KTIJ cherry-pick tracking issue for a KT fix that needs to be cherry-picked to an IntelliJ branch. Use when cherry-picking Analysis API fixes
+kotlin | analysis-api-mark-internal-apis | migration | Drive the per-module internal-API codebase test, then refine the suggested annotations down to `internal` (or up to `@KaImplementationDetail`) based o
+kotlin | build-bump-gradle-version | build-ci | Bumps the Gradle wrapper/distribution version that BUILDS the Kotlin project itself - the version behind `./gradlew`, defined by `gradle/wrapper/gradl
+kotlin | build-tools-add-test-federation-annotations-to-integration-tests | testing | Annotate test classes in `kotlin-gradle-plugin-integration-tests` with Test Federation annotations (`@MustRunOnChangesInXYZ` / `@MustRunAlways`). Use 
+kotlin | build-tools-bump-gradle-api | build-ci | Bumps the Gradle API version that Kotlin Gradle plugins are compiled against in the Kotlin compiler repository. Use this skill whenever the user asks 
+kotlin | build-tools-bump-gradle-in-tests | build-ci | Bump the maximum supported Gradle version in the `kotlin-gradle-plugin-integration-tests` project. Use this whenever the user asks to bump Gradle in i
+kotlin | minimize-repro-for-diagnostic-test | issues | Makes a minimal reproduction of a Frontend-related bug as a diagnostic test
+kotlin-web-site | add-api-reference | docs | Publish a new kotlinx library API reference on kotlinlang.org/api via the TeamCity Kotlin DSL, the way kotlinx.coroutines, kotlinx.serialization, kotl
+kotlin-web-site | add-writerside-doc-module | docs | Add a new external Writerside documentation source to kotlin-web-site via the TeamCity Kotlin DSL (as a sub-documentation source under KotlinWithCorou
+kotlin-web-site | fix-frontend-review-comments | review | Apply pull-request review comments to the frontend of kotlinlang.org (Next.js, React, TypeScript, CSS Modules under blocks/, components/, pages/, hook
+mlx-vlm | add-new-model | ml | Use this skill when the user wants to add or port a new model architecture to MLX-VLM - mapping a Hugging Face model_type to a new file under mlx_vlm/
+mlx-vlm | benchmarking | performance | Use this skill when the user wants to benchmark an MLX-VLM change and present the numbers in a PR - fork-vs-main A/B comparisons, isolated-module micr
+mlx-vlm | cli-inference | ml | Use this skill when the user wants to run or debug MLX-VLM inference from the command line, including uv run mlx_vlm.generate, image/audio/video input
+mlx-vlm | contributing | ml | Use this skill when the user wants to contribute to MLX-VLM - opening a PR, where model code/config/tests go, backward-compatible config args, running
+mlx-vlm | convert-quantize | ml | Use this skill when the user wants to convert a Hugging Face model to MLX or quantize/dequantize one with mlx_vlm.convert, including bits and group si
+mlx-vlm | hf-cache-models | ml | Use this skill when the user wants to list, inspect, or report MLX-VLM model candidates available in the local Hugging Face cache directory, including
+mlx-vlm | reproducible-github-issues | issues | Use this skill when the user wants to create, improve, or triage a reproducible GitHub issue for MLX-VLM, including bug reports from CLI inference, se
+mlx-vlm | server-inference | ml | Use this skill when the user wants to run or debug MLX-VLM server inference, including uv run mlx_vlm.server, /v1/models, /v1/chat/completions, /v1/re
+modelcontextprotocol-csharp-sdk | breaking-changes | review | Audit pull requests for breaking changes in the C# MCP SDK. Examines PR descriptions, review comments, and diffs to identify API and behavioral breaki
+modelcontextprotocol-csharp-sdk | bump-version | releases | Assess and bump the SDK version using Semantic Versioning 2.0.0. Evaluates queued changes to recommend PATCH/MINOR/MAJOR, updates src/Directory.Build.
+modelcontextprotocol-csharp-sdk | issue-triage | issues | Generate an issue triage report for the C# MCP SDK. Fetches all open issues, evaluates SLA compliance against SDK tier requirements, reviews issue dis
+modelcontextprotocol-csharp-sdk | prepare-release | releases | Prepare a new release for the C# MCP SDK. Assesses Semantic Versioning level (PATCH/MINOR/MAJOR), bumps the version, runs ApiCompat and ApiDiff, revie
+modelcontextprotocol-csharp-sdk | publish-release | releases | Publish a GitHub release for the C# MCP SDK after a prepare-release PR has been merged. Refreshes release notes to include any PRs merged since prepar
+modelcontextprotocol-csharp-sdk | run-conformance-from-branch | testing | Run MCP conformance tests in the C# SDK against a conformance branch (including forks) instead of the published npm version, then restore pinned depen
+modelcontextprotocol-csharp-sdk | verify-release | releases | Verify a published release of the C# MCP SDK. Monitors the Release and Publish Docs workflows triggered by publishing a GitHub release, confirms the p
+nopressure-grok-bot-plugin | nopressure | other | NoPressure is communication-skills practice for the workplace - it turns a hard conversation into a live voice roleplay the user can rehearse before t
+phpstorm-claude-marketplace | php-code-review | review | Review PHP code using PhpStorm inspections. Use when editing PHP files, reviewing code quality, fixing PHP issues, or when asked about PHP best practi
+phpstorm-claude-marketplace | php-project-guide | languages | Foundational PHP project knowledge for AI agents. Use when working on a PHP project, setting up a PHP development environment, understanding PHP proje
+phpstorm-claude-marketplace | upgrade-php | migration | PHP Upgrade Assistant. Use when upgrading PHP version, fixing deprecations for a target PHP version, or scanning for PHP compatibility issues.
+rider-skills | debugging-code | debugging | Use for debugger-driven runtime root-cause analysis in Rider-supported solutions and projects, including .NET/C#, F#, VB, C++, Unity, Unreal Engine, a
+rider-skills | finding-tests | testing | Locates existing tests for a given C# class and method using the test coverage data supplied by IDE. Triggers ONLY for C# production code (`.cs` files
+rider-skills | navigating-code | search | Use when you must know where a symbol is used or implemented in a solution open in Rider - .NET/C#, F#, VB, C++, Unity, Unreal Engine, XAML, Razor, or
+rider-skills | refactoring-code | migration | Use when semantic refactoring is needed in Rider-supported solutions and projects, including .NET/C#, F#, VB, C++, Unity, Unreal Engine, XAML, Razor, 
+rider-skills | ue-code-authoring | languages | Use when writing or modifying Unreal Engine C++ - classes, actors, components, subsystems, interfaces, ability-system (GAS) code, module dependencies,
+rider-skills | ue-live-debugging | debugging | Use when debugging UE C++ crashes, runtime bugs, or unexpected behavior with Rider MCP available. Value over bash/grep: analyze_calls traces C++ call 
+rider-skills | ue-test-authoring | testing | Use when writing or modifying Unreal Engine automated tests - Automation (IMPLEMENT_SIMPLE_AUTOMATION_TEST, DEFINE_SPEC), CQTest, Functional, Gauntlet
+roer | roer-extension-authoring | ide-plugins | Make a Roer extension, a tab of its own in the Roer app's stage written in React, and load and install it. Use when the user asks for a tab, panel or 
+roer | roer-handoff | workflow | Teleport the current terminal session into the Roer desktop app. Use when the user asks to open, move, teleport or continue this session in Roer.
+sbt-structure | update-test-sbt-versions | testing | Updates the latest sbt test versions. Use when the user asks "update the latest sbt versions".
+skia | skia-add-test | testing | Add a new test to the Skia repository. Use this skill when you need to create a new unit or integration test in the tests/ directory and ensure it's p
+skia | skia-gn-workflow | build-ci | MANDATORY: Use this skill for ANY and ALL tasks involving building Skia with GN, Ninja, or compiling any Skia tool. It is the authoritative source for
+teamcity-skills | migrate-to-teamcity | build-ci | Use when migrating, converting, or switching CI/CD pipelines to TeamCity from GitHub Actions (.github/workflows/) or Bamboo (bamboo-specs/*.yml), even
+teamcity-skills | teamcity-cli | build-ci | Use when working with TeamCity CI/CD or when a user provides a TeamCity build URL - drives the `teamcity` CLI for builds, logs, jobs, queues, agents, 
+teamcity-skills | teamcity-first-green-build | build-ci | Use when creating, validating, or updating TeamCity CI for a repository and driving it through its first successful build.
+teamcity-skills | teamcity-intellij | build-ci | Use when working with TeamCity CI/CD from this IDE - inspecting builds and logs, investigating failures, triggering runs, or changing projects and pip
+thinkrail | asking-user-questions | workflow | Use when composing an ask_user_question round inside a workflow, or when a workflow skill names it at a question step. Shared norms for the tool - not
+thinkrail | brainstorming | workflow | Use before implementing a feature, a change in behavior, or a bug fix - however small. Not for questions, checks, or edits that change no behavior (ty
+thinkrail | choosing-a-workflow | workflow | Use at the start of new project onboarding, PR lifecycle work including PR checks, or any change to what the product does - a feature, a behavior chan
+thinkrail | importing-a-codebase | workflow | Use when asked to create the initial spec graph for an existing codebase that has source code but no specs. Normally reached via setting-up-a-project.
+thinkrail | managing-mcp-servers | workflow | Use when the user asks to add, change, remove, enable or disable an MCP server, or when an MCP tool is missing, needs sign-in, fails, or was blocked. 
+thinkrail | setting-up-a-project | workflow | Use when asked to set up, onboard, initialize, or spec a project with no spec graph, or when invoked by the app's Set-up-project card. Not for ordinar
+thinkrail | shipping-a-pr | git | Use when finished work needs to ship as a pull request, or when creating, syncing, updating metadata, checking status, monitoring CI, or addressing re
+thinkrail | spec-graph | workflow | Use when locating, reading, creating, updating, or validating project specs, or when work is governed by or may alter a documented boundary, contract,
+thinkrail | starting-a-new-project | workflow | Use when the workspace is empty, has no code, and the user brings a raw project idea. Normally reached via setting-up-a-project; not for an existing p
+thinkrail | todos | workflow | Use when the user asks for a shared plan, a task needs at least three substantive execution steps, or a loose TODO is pending. Without an explicit pla
+thinkrail | writing-specs | workflow | Use when a workflow step drafts or revises a spec artifact - a goal-and-requirements, an architecture, or a module SPEC - or when a workflow skill nam
+thinkrail | writing-workflow-skills | workflow | Use when adding a new workflow skill to pi-thinkrail-workflow, changing an existing workflow skill's role, trigger, handoff, or structure, or checking
+typescript-go | api-client | languages | Instructions for working on the API client in ./packages/typescript
+typescript-go | compiler-and-fourslash-tests | testing | How to write, run, and debug compiler tests and fourslash (LSP) tests in the TypeScript repository. Covers test file formats, directives, markers, bas
+typescript-go | mcfly | other | Only invoke when explicitly instructed to
+typescript-go | security-report-check | other | 
+youtrack-apps | youtrack-apps-skill | issues | Guides building, debugging, extending, and managing JetBrains YouTrack apps and workflows. Used when scaffolding, modifying, validating, uploading, do
+youtrack-cli | youtrack-cli | issues | CRUD for YouTrack entities (issues, projects, users, comments) via the youtrack-cli Go CLI. Use when the user asks to manage YouTrack data, run querie
+youtrackdb | ai-tells | docs | Reviews any draft for AI writing tells and produces a clean rewrite. Catches structural fingerprints (negative parallelism like "It's not X, it's Y", 
+youtrackdb | analyze-changes | git | Analyze git changes (branch, commit, or current branch) and produce a design-oriented markup document with Mermaid diagrams, query/usage examples, dat
+youtrackdb | code-review | review | Review code, test, and workflow-machinery changes across multiple dimensions using specialized agents with triage-based selection.
+youtrackdb | create-plan | workflow | Research the codebase and create an implementation plan with architecture notes, design document, and track decomposition. Use when starting a new fea
+youtrackdb | create-presentation | docs | Generate a PPTX presentation explaining code changes on the current branch, with matplotlib diagrams and dark theme slides.
+youtrackdb | edit-design | workflow | Apply an edit to `design.md` or `design-mechanics.md` through the mutation discipline: apply → auto-review → iterate → present. Use this instead of di
+youtrackdb | execute-tracks | workflow | Execute the implementation plan: autonomous plan review (Phase 2) on first invocation, then track-by-track execution (Phase A review + decomposition, 
+youtrackdb | fix-ci-failure | build-ci | Diagnose and fix a CI test failure from a GitHub PR or workflow run. Includes root cause analysis, dimensional code review, and PR creation.
+youtrackdb | migrate-workflow | migration | Migrate a branch's docs/adr/<dir>/_workflow/** artifacts by replaying workflow-format commits from the per-artifact stamp base through HEAD. Resumable
+youtrackdb | profile-jmh-regressions | performance | Profile JMH benchmark regressions using async-profiler on a Hetzner CCX33 server. Reads regressions from a PR benchmark comment, profiles both HEAD an
+youtrackdb | profile-query-bottleneck | performance | Profile and diagnose YouTrackDB SQL/MATCH query bottlenecks. Accepts one or more LDBC query names (e.g., IC5, IS7, IC1,IC10). Combines async-profiler 
+youtrackdb | readability-feedback | docs | Audit a finished design document for hard-to-read or hard-to-understand paragraphs, then harden the house-style rules so future design docs avoid them
+youtrackdb | review-docs | docs | Review documentation files for grammar, factual accuracy, and query correctness. Use when the user asks to review docs, validate documentation, or che
+youtrackdb | review-plan | review | Manually re-run the autonomous plan review (Phase 2 - consistency + structural). The same review runs automatically as the first phase of /execute-tra
+youtrackdb | review-workflow-pr | workflow | Review a workflow-style PR's design, plan, and track files in research-mode Q&A; auto-records observations and submits a line-anchored review via gh a
+youtrackdb | run-jmh-benchmarks-hetzner | performance | Provision a Hetzner CCX33 server, deploy the project, run JMH benchmarks, collect results, and destroy the server. Use ONLY when the user explicitly a

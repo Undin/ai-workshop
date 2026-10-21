@@ -1,3 +1,5 @@
+import type { Group } from './group.ts';
+
 /** A GitHub organization, or a user: its public repositories are scanned one by one. */
 export type Organization = {
   /** The login, for example `JetBrains`. */
@@ -36,6 +38,8 @@ export type Skill = {
   properties: Record<string, unknown>;
   /** The Markdown after the front matter. */
   body: string;
+  /** What it helps with: its group, by `groupOf`. */
+  group: Group;
   /** When it last changed, asked in the web view's scan only: a GitHub request each. */
   updated?: LastUpdate;
 };

@@ -485,3 +485,161 @@ test('an organization without repositories → `No repositories found`; one GitH
   await expect(page.getByRole('status')).toHaveText('Organization not found: https://github.com/no-such-owner');
   await expect(page.getByRole('list', { name: 'Repositories' })).toBeHidden();
 });
+
+// Groups (spec/web.md, Groups): the skills of a scan that is over, in their groups (spec/analysis.md, Group).
+
+const groupHeadings = (page: Page) => page.getByRole('list', { name: 'Groups' }).getByRole('heading', { level: 3 });
+const inGroup = (page: Page, name: string) => page.getByRole('list', { name }).getByRole('button');
+const groupSkills = (page: Page) => page.getByRole('button', { name: 'Group skills' });
+
+test("Group skills: a repository's skills in their groups, in the order of the list, Other last; a skill → its SKILL.md", async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/groups');
+  await expect(page.getByRole('heading', { name: 'JetBrains/groups · 10 skills' })).toBeVisible();
+  await groupSkills(page).click();
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent('https://github.com/JetBrains/groups')}&view=groups`);
+  await expect(page.getByRole('heading', { name: 'JetBrains/groups · 10 skills in 6 groups' })).toBeVisible();
+  // No empty group; each with how many it has.
+  await expect(groupHeadings(page)).toHaveText([
+    'Testing · 1 skill',
+    'Releases & changelogs · 1 skill',
+    'Code review & quality · 1 skill',
+    'Git & pull requests · 1 skill',
+    'Build & CI/CD · 1 skill',
+    'Other · 5 skills',
+  ]);
+  // By name, as in the list: the name and the first sentence; no filter, no list of skills.
+  await expect(inGroup(page, 'Other').locator('.name')).toHaveText(['latest', 'mystery', 'nopressure', 'notes', 'pull-logs']);
+  await expect(inGroup(page, 'Testing')).toHaveText(['run-tests' + 'Run the tests before pushing.']);
+  await expect(inGroup(page, 'Testing').locator('.repository')).toHaveCount(0);
+  await expect(page.getByLabel('Filter')).toBeHidden();
+  await expect(page.getByRole('list', { name: 'Skills' })).toBeHidden();
+  // The first one chosen at first; another, its SKILL.md as on the repository's page.
+  await expect(inGroup(page, 'Testing')).toHaveAttribute('aria-current', 'true');
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('run-tests');
+  await inGroup(page, 'Build & CI/CD').click();
+  await expect(inGroup(page, 'Build & CI/CD')).toHaveAttribute('aria-current', 'true');
+  await expect(inGroup(page, 'Testing')).not.toHaveAttribute('aria-current', 'true');
+  await expect(article(page).getByRole('heading', { level: 2 })).toHaveText('deploy');
+  await expect(article(page).getByRole('table', { name: 'Front matter' })).toContainText('Run the tests, then review the release.');
+  await expect(article(page).getByRole('link', { name: '.claude/skills/deploy/SKILL.md' })).toHaveAttribute(
+    'href',
+    `https://github.com/JetBrains/groups/blob/${EXAMPLE_COMMIT}/.claude/skills/deploy/SKILL.md`,
+  );
+  await expect(updated(page)).toHaveText('Updated 2026-05-05');
+});
+
+test('Back to skills, or Back: the list again, no new scan; a reload of the groups scans again and shows them', async ({ page }) => {
+  const scans = scansOf(page);
+  await scan(page, FIXTURE);
+  await groupSkills(page).click();
+  await expect(page.getByRole('heading', { name: 'fixture · 10 skills in 7 groups' })).toBeVisible();
+  await page.getByRole('link', { name: 'Back to skills' }).click();
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent(FIXTURE)}`);
+  await expect(page.getByRole('heading', { name: 'fixture · 10 skills' })).toBeVisible();
+  await expect(skills(page)).toHaveCount(10);
+  // Back: the groups, then the list.
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'fixture · 10 skills in 7 groups' })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent(FIXTURE)}`);
+  await expect(skills(page)).toHaveCount(10);
+  expect(scans).toEqual([FIXTURE]);
+
+  await page.goForward();
+  await expect(page.getByRole('heading', { name: 'fixture · 10 skills in 7 groups' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'fixture · 10 skills in 7 groups' })).toBeVisible();
+  await expect(groupHeadings(page)).toHaveText([
+    'Testing · 1 skill',
+    'Releases & changelogs · 2 skills',
+    'Code review & quality · 2 skills',
+    'Git & pull requests · 1 skill',
+    'Refactoring & migrations · 1 skill',
+    'Build & CI/CD · 2 skills',
+    'Other · 1 skill',
+  ]);
+  expect(scans).toEqual([FIXTURE, FIXTURE]);
+});
+
+test('no Group skills while a repository is scanned, nor when it has no skills', async ({ page }) => {
+  await scan(page, 'https://github.com/JetBrains/slow');
+  await expect(page.getByRole('status')).toHaveText('Scanning https://github.com/JetBrains/slow…');
+  await expect(groupSkills(page)).toBeHidden();
+  await scan(page, 'https://github.com/JetBrains/empty');
+  await expect(page.getByRole('status')).toHaveText('No skills found');
+  await expect(groupSkills(page)).toBeHidden();
+});
+
+test("an organization: no Group skills while it runs; once done, all its skills in their groups, each with its repository", async ({ page }) => {
+  await scan(page, 'https://github.com/Halting');
+  await expect(progress(page)).toHaveText(/^Scanning Halting: 1 of 2 repositories…/);
+  await expect(groupSkills(page)).toBeHidden();
+  await expect(progress(page)).toBeHidden({ timeout: SLOW_ANSWER_MS * 4 });
+  await groupSkills(page).click();
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent('https://github.com/Halting')}&view=groups`);
+  await expect(page.getByRole('heading', { name: 'Halting · 3 skills in 2 groups' })).toBeVisible();
+  await expect(groupHeadings(page)).toHaveText(['Testing · 2 skills', 'Git & pull requests · 1 skill']);
+  await expect(inGroup(page, 'Testing').locator('.name')).toHaveText(['e2e', 'run-tests']);
+  await expect(inGroup(page, 'Testing').locator('.repository')).toHaveText(['Halting/late', 'Halting/first']);
+  await inGroup(page, 'Testing').first().click();
+  await expect(article(page).getByRole('link', { name: '.claude/skills/e2e/SKILL.md' })).toHaveAttribute(
+    'href',
+    `https://github.com/Halting/late/blob/${EXAMPLE_COMMIT}/.claude/skills/e2e/SKILL.md`,
+  );
+  await page.getByRole('link', { name: 'Back to repositories' }).click();
+  await expect(page.getByRole('heading', { name: 'Halting · 2 repositories' })).toBeVisible();
+
+  // The same name in two repositories: two skills, by repository.
+  await scan(page, 'https://github.com/JetBrains');
+  await groupSkills(page).click();
+  await expect(page.getByRole('heading', { name: 'JetBrains · 3 skills in 2 groups' })).toBeVisible();
+  await expect(groupHeadings(page)).toHaveText(['Git & pull requests · 2 skills', 'Other · 1 skill']);
+  await expect(inGroup(page, 'Git & pull requests').locator('.repository')).toHaveText(['JetBrains/example', 'JetBrains/malformed']);
+  await expect(inGroup(page, 'Other')).toHaveText(['broken' + 'JetBrains/malformed']);
+});
+
+test('an organization stopped: Group skills, the skills of the repositories scanned', async ({ page }) => {
+  await scan(page, 'https://github.com/Halting');
+  await progress(page).getByRole('button', { name: 'Stop' }).click();
+  await groupSkills(page).click();
+  await expect(page.getByRole('status')).toHaveText('Stopped after 1 of 2 repositories');
+  await expect(page.getByRole('heading', { name: 'Halting · 2 skills in 2 groups' })).toBeVisible();
+  await expect(groupHeadings(page)).toHaveText(['Testing · 1 skill', 'Git & pull requests · 1 skill']);
+  // Nothing scanned: nothing to group.
+  await scan(page, 'https://github.com/Slow');
+  await expect(repositories(page).locator('.count')).toHaveText(['0 skills', '0 skills'], { timeout: SLOW_ANSWER_MS * 4 });
+  await expect(groupSkills(page)).toBeHidden();
+});
+
+test("an organization, GitHub answers no more: Group skills, the skills of the repositories scanned, its message red above", async ({ page }) => {
+  await scan(page, 'https://github.com/Cut');
+  await expect(page.getByRole('status')).toHaveText('GitHub rate limit reached; try again in a minute');
+  await groupSkills(page).click();
+  await expect(page.getByRole('heading', { name: 'Cut · 1 skill in 1 group' })).toBeVisible();
+  await expect(groupHeadings(page)).toHaveText(['Git & pull requests · 1 skill']);
+  await expect(inGroup(page, 'Git & pull requests').locator('.repository')).toHaveText(['Cut/first']);
+  await expect(page.getByRole('status')).toHaveText('GitHub rate limit reached; try again in a minute');
+  await expect(page.getByRole('status')).toHaveClass(/error/);
+});
+
+test("a repository's page during the organization's scan: Group skills, its own skills; the scan goes on", async ({ page }) => {
+  const scans = scansOf(page);
+  await scan(page, 'https://github.com/Halting');
+  await page.getByRole('link', { name: /^Halting\/first/ }).click();
+  await groupSkills(page).click();
+  await expect(page).toHaveURL(`/?source=${encodeURIComponent('https://github.com/Halting/first')}&view=groups`);
+  await expect(page.getByRole('heading', { name: 'Halting/first · 2 skills in 2 groups' })).toBeVisible();
+  await expect(progress(page)).toHaveText(/^Scanning Halting: 1 of 2 repositories…/);
+  await expect(progress(page)).toBeHidden({ timeout: SLOW_ANSWER_MS * 4 });
+  await page.getByRole('link', { name: 'Back to skills' }).click();
+  await expect(page.getByRole('heading', { name: 'Halting/first · 2 skills' })).toBeVisible();
+  expect(scans).toEqual(['https://github.com/Halting']);
+});
+
+test("a reload of an organization's groups: its page and progress meanwhile, then the groups", async ({ page }) => {
+  await page.goto(`/?source=${encodeURIComponent('https://github.com/Halting')}&view=groups`);
+  await expect(page.getByRole('heading', { name: 'Halting · 2 repositories' })).toBeVisible();
+  await expect(progress(page)).toHaveText(/^Scanning Halting: 1 of 2 repositories…/);
+  await expect(page.getByRole('heading', { name: 'Halting · 3 skills in 2 groups' })).toBeVisible({ timeout: SLOW_ANSWER_MS * 4 });
+  await expect(progress(page)).toBeHidden();
+});
