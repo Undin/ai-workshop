@@ -611,6 +611,17 @@ test('an organization stopped: Group skills, the skills of the repositories scan
   await expect(groupSkills(page)).toBeHidden();
 });
 
+test("an organization, GitHub answers no more: Group skills, the skills of the repositories scanned, its message red above", async ({ page }) => {
+  await scan(page, 'https://github.com/Cut');
+  await expect(page.getByRole('status')).toHaveText('GitHub rate limit reached; try again in a minute');
+  await groupSkills(page).click();
+  await expect(page.getByRole('heading', { name: 'Cut · 1 skill in 1 group' })).toBeVisible();
+  await expect(groupHeadings(page)).toHaveText(['Git & pull requests · 1 skill']);
+  await expect(inGroup(page, 'Git & pull requests').locator('.repository')).toHaveText(['Cut/first']);
+  await expect(page.getByRole('status')).toHaveText('GitHub rate limit reached; try again in a minute');
+  await expect(page.getByRole('status')).toHaveClass(/error/);
+});
+
 test("a repository's page during the organization's scan: Group skills, its own skills; the scan goes on", async ({ page }) => {
   const scans = scansOf(page);
   await scan(page, 'https://github.com/Halting');

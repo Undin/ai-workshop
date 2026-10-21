@@ -3,7 +3,7 @@
 import type { Fetch } from '../src/core/github.ts';
 import { replay } from '../src/core/replay.ts';
 import { createAtlasServer, listen } from '../src/server.ts';
-import { github, inTree, lastCommit, openWith, owner, repository, SLOW_ANSWER_MS } from './helpers.ts';
+import { github, inTree, lastCommit, openWith, owner, RATE_LIMITED, repository, SLOW_ANSWER_MS } from './helpers.ts';
 
 const answers = replay(
   {
@@ -57,6 +57,11 @@ const answers = replay(
     ...lastCommit('Halting/first', '.claude/skills/commits', '2026-05-05T05:05:05Z'),
     ...inTree('Halting/late', { '.claude/skills/e2e/SKILL.md': '---\nname: e2e\ndescription: The end-to-end tests.\n---\n# e2e\n' }),
     ...lastCommit('Halting/late', '.claude/skills/e2e', '2026-05-05T05:05:05Z'),
+    // Groups: an organization whose first repository has a skill, and GitHub answers no more at its second.
+    ...owner('Cut', ['first', 'second']),
+    ...inTree('Cut/first', { '.claude/skills/commits/SKILL.md': '---\nname: commits\ndescription: Write commit messages.\n---\n# Commits\n' }),
+    ...lastCommit('Cut/first', '.claude/skills/commits', '2026-05-05T05:05:05Z'),
+    'https://api.github.com/repos/Cut/second/commits/main': RATE_LIMITED,
   },
   github,
 );
