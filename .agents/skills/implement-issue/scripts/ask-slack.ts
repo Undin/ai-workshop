@@ -3,7 +3,9 @@
 // to the Slack channel SLACK_CHANNEL (its ID) as the bot of SLACK_BOT_TOKEN, or into the thread of an
 // earlier one (`--thread`), then reads the thread every interval until someone who is no bot answers
 // (their messages printed as JSON, exit 0) or the wait passes without an answer (exit 2). With
-// `--after`, it posts nothing and waits on a question already posted. Exit 1: an error.
+// `--after`, it posts nothing and waits on a question already posted. A read that fails for a while
+// (Slack's rate limit or a server error, the network) is tried again until the wait ends. Exit 1: an
+// error.
 import { text } from 'node:stream/consumers';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -21,18 +23,36 @@ type Answer = { author: string; text: string; ts: string };
 /** What the script prints: where the question is, and what was answered to it. */
 type Asked = { channel: string; thread: string; question: string; url: string; answers: Answer[] };
 
+/** A failure that passes: Slack's rate limit or a server error, the network. */
+class Unavailable extends Error {
+  /** How many seconds Slack asks to wait (`Retry-After`), if it does. */
+  retryAfter: number;
+  constructor(message: string, retryAfter = 0) {
+    super(message);
+    this.retryAfter = retryAfter;
+  }
+}
+
 /** What Slack's `method` answers, when it says ok. */
 async function slack<T>(token: string, method: string, query: Record<string, string>, body?: object): Promise<T> {
   const url = `${API}/${method}${body ? '' : `?${new URLSearchParams(query)}`}`;
-  const response = await fetch(url, {
-    method: body ? 'POST' : 'GET',
-    headers: {
-      authorization: `Bearer ${token}`,
-      ...(body ? { 'content-type': 'application/json; charset=utf-8' } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!response.ok) throw new Error(`Slack ${method} failed: HTTP ${response.status}`);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: body ? 'POST' : 'GET',
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(body ? { 'content-type': 'application/json; charset=utf-8' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    throw new Unavailable(`Slack ${method} failed: ${(error as Error).message}`);
+  }
+  const failed = `Slack ${method} failed: HTTP ${response.status}`;
+  if (response.status === 429) throw new Unavailable(failed, Number(response.headers.get('retry-after')) || 0);
+  if (response.status >= 500) throw new Unavailable(failed);
+  if (!response.ok) throw new Error(failed);
   const answer = (await response.json()) as { ok: boolean; error?: string } & T;
   if (!answer.ok) throw new Error(`Slack ${method} failed: ${answer.error ?? 'no reason given'}`);
   return answer;
@@ -133,16 +153,26 @@ async function main(args: string[]): Promise<number> {
     asked = { channel, thread: thread ?? question, question, url: link.permalink, answers: [] };
 
     const deadline = Date.now() + wait * 60_000;
-    // Once the interval after posting, then every interval, the last time when the wait ends.
+    // Once the interval after posting, then every interval (longer if Slack asks), the last time when
+    // the wait ends.
+    let pause = interval * 1000;
     for (;;) {
       const left = deadline - Date.now();
-      await sleep(Math.max(0, Math.min(interval * 1000, left)));
-      asked.answers = await answers(token, channel, asked.thread, question);
+      const nap = Math.max(0, Math.min(pause, left));
+      await sleep(nap);
+      pause = interval * 1000;
+      try {
+        asked.answers = await answers(token, channel, asked.thread, question);
+      } catch (error) {
+        if (!(error instanceof Unavailable)) throw error;
+        console.error(`${error.message}; reading again`);
+        pause = Math.max(pause, error.retryAfter * 1000);
+      }
       if (asked.answers.length) {
         console.log(JSON.stringify(asked, null, 2));
         return 0;
       }
-      if (left <= interval * 1000) break;
+      if (nap >= left) break;
     }
   } catch (error) {
     console.error((error as Error).message);

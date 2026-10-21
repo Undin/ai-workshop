@@ -22,9 +22,16 @@ const message = (seconds: number, text: string, extra: Record<string, unknown> =
 const question = { ts: POSTED, user: 'U0CA95Y5YT1', bot_id: 'B0CAQBLQS3C', text: 'Which one?' };
 
 type Page = { messages: unknown[]; response_metadata?: { next_cursor: string } };
-/** What Slack answers: for conversations.replies, the pages each time it is read; the last one repeats. */
-type Fake = { replies?: Page[][]; post?: Record<string, unknown> };
-type Call = { method: string; authorization?: string; query: Record<string, string>; body?: Record<string, unknown> };
+/** A read that fails: with an HTTP status (and `Retry-After`), or with no answer at all (`status: 0`). */
+type Failure = { status: number; retryAfter?: string };
+/**
+ * What Slack answers: for conversations.replies, each time it is read, its pages or a failure; the
+ * last one repeats.
+ */
+type Fake = { replies?: (Page[] | Failure)[]; post?: Record<string, unknown> };
+type Call = {
+  method: string; authorization?: string; query: Record<string, string>; body?: Record<string, unknown>; at: number;
+};
 
 /** `ask-slack.ts <args>`, `stdin` the question, with Slack answering `fake`. */
 async function ask(t: TestContext, fake: Fake, args = ['--wait', '0', '--interval', '0'], options: {
@@ -41,7 +48,8 @@ async function ask(t: TestContext, fake: Fake, args = ['--wait', '0', '--interva
       for await (const chunk of request) raw += chunk;
       body = JSON.parse(raw);
     }
-    calls.push({ method, authorization: request.headers.authorization, query: Object.fromEntries(url.searchParams), body });
+    const query = Object.fromEntries(url.searchParams);
+    calls.push({ method, authorization: request.headers.authorization, query, body, at: Date.now() });
     let answer: unknown;
     if (method === 'chat.postMessage') answer = fake.post ?? { ok: true, channel: CHANNEL, ts: POSTED };
     else if (method === 'chat.getPermalink') answer = { ok: true, permalink: URL_OF(url.searchParams.get('message_ts')!) };
@@ -50,6 +58,12 @@ async function ask(t: TestContext, fake: Fake, args = ['--wait', '0', '--interva
       const cursor = url.searchParams.get('cursor');
       if (!cursor) read++;
       const time = pages[Math.min(read, pages.length) - 1];
+      if (!Array.isArray(time)) {
+        if (!time.status) return void request.socket.destroy();
+        if (time.retryAfter) response.setHeader('retry-after', time.retryAfter);
+        response.statusCode = time.status;
+        return void response.end();
+      }
       answer = { ok: true, ...time[cursor ? Number(cursor) : 0] };
     } else answer = { ok: false, error: 'unknown_method' };
     response.setHeader('content-type', 'application/json');
@@ -155,6 +169,42 @@ test('--after: waits on a question already posted, posting nothing, for what com
     channel: CHANNEL, thread: earlier, question: POSTED, url: URL_OF(POSTED),
     answers: [{ author: 'U0CAFSBRH9D', text: 'C', ts: '1792572428.000000' }],
   });
+});
+
+test('a read that fails for a while is tried again, after the Retry-After Slack asks for: the wait goes on', async (t) => {
+  const fake = {
+    replies: [{ status: 429, retryAfter: '1' }, { status: 503 }, { status: 0 }, [{ messages: [question, message(9, 'A')] }]],
+  };
+  const { code, stdout, stderr, calls } = await ask(t, fake, ['--wait', '1', '--interval', '0.05']);
+  assert.equal(code, 0, stderr);
+  assert.deepEqual(JSON.parse(stdout).answers.map((answer: { text: string }) => answer.text), ['A']);
+  const lines = stderr.trimEnd().split('\n');
+  assert.deepEqual(lines.slice(0, 2), [
+    'Slack conversations.replies failed: HTTP 429; reading again',
+    'Slack conversations.replies failed: HTTP 503; reading again',
+  ]);
+  assert.match(lines[2], /^Slack conversations\.replies failed: .+; reading again$/);
+  assert.equal(lines.length, 3);
+  const reads = calls.filter((call) => call.method === 'conversations.replies').map((call) => call.at);
+  assert.equal(reads.length, 4);
+  assert.ok(reads[1] - reads[0] >= 1000, `read again after ${reads[1] - reads[0]} ms`);
+  assert.ok(reads[2] - reads[1] < 1000, `read again after ${reads[2] - reads[1]} ms`);
+});
+
+test('a read that keeps failing to the end of the wait: no answer, exit 2', async (t) => {
+  const { code, stdout, stderr } = await ask(t, { replies: [{ status: 502 }] });
+  assert.equal(code, 2);
+  assert.deepEqual(JSON.parse(stdout).answers, []);
+  assert.equal(stderr, `Slack conversations.replies failed: HTTP 502; reading again\nNo answer in 0 minutes: ${URL_OF(POSTED)}\n`);
+});
+
+test('a failure that does not pass, on a read too: its error, and exit 1', async (t) => {
+  for (const [replies, error] of [[[{ status: 403 }], 'HTTP 403'], [[[{ ok: false, error: 'invalid_auth' } as unknown as Page]], 'invalid_auth']] as const) {
+    const { code, stdout, stderr } = await ask(t, { replies: [...replies] as Fake['replies'] }, ['--wait', '1', '--interval', '0.05']);
+    assert.equal(code, 1);
+    assert.equal(stdout, '');
+    assert.equal(stderr, `Slack conversations.replies failed: ${error}\n`);
+  }
 });
 
 test('what Slack refuses: its error, and exit 1', async (t) => {

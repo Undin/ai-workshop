@@ -299,7 +299,9 @@ answers, or `--wait` minutes (`WAIT_MINUTES`: 60) pass:
   `question` is the message posted, `url` its link, `answers` every message in the thread after
   it, oldest first, by anyone who isn't a bot;
 - **exit 2**: no answer in the wait: the same JSON, `"answers": []`;
-- **exit 1**: an error (no `SLACK_BOT_TOKEN` or `SLACK_CHANNEL`, Slack refused), on stderr.
+- **exit 1**: an error that doesn't pass (no `SLACK_BOT_TOKEN` or `SLACK_CHANNEL`, Slack refused), on
+  stderr. A read that fails for a while (Slack's rate limit, with its `Retry-After`, or a server
+  error, the network) is no error: tried again until the wait ends, a line on stderr each time.
 
 Answers come as people write them (`B`, `2`, `the first one`, a sentence): read what they mean. One
 that leaves a point open, or opens a new question: ask again in the same thread, `--thread
@@ -311,8 +313,8 @@ exits 2, wait on the same question without posting it again, `--thread <thread> 
 --wait 9`, until 60 minutes have passed in all. No answer in 60 minutes: stop, and edit the status
 comment, if there is one: `🛠️ Stopped: waiting for an answer in Slack: <url>.`
 
-No `SLACK_BOT_TOKEN` or `SLACK_CHANNEL` (exit 1): there is no one to ask; stop, saying what is
-missing, rather than guess.
+Exit 1: there is no one to ask; stop, saying what is wrong (a missing `SLACK_BOT_TOKEN` or
+`SLACK_CHANNEL`, Slack's error), rather than guess.
 
 ## Status comments
 
