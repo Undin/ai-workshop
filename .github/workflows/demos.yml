@@ -1,13 +1,12 @@
-# The demos of the web view (demos/*.demo.ts), all of them, on every push to a pull request, apart from
-# CI (ci.yml): each one recorded on real repositories, its video an artifact of its own, `<name>.webm`,
-# to link from the pull request's description, and the screenshots of its key points another,
-# `<name>-screenshots`, to commit into demos/<name>/ and show there. By hand, on a branch with no
-# pull request: gh workflow run Demos --ref <branch>
-# A demo asserts what it shows: a red run is a demo or a feature that broke.
+# The demos of the web view (demos/*.demo.ts), all of them, by hand only, apart from CI (ci.yml):
+#   gh workflow run Demos --ref <branch>
+# Each one recorded on real repositories, its video an artifact of its own, `<name>.webm`, and the
+# screenshots of its key points another, `<name>-screenshots`, to look at. Not on pull requests: their
+# scans share the runners' limit on GitHub's code search, and too often get 429 (#27).
+# A demo asserts what it shows: a red run is a demo or a feature that broke, or that 429.
 name: Demos
 run-name: "Demos on ${{ github.head_ref || github.ref_name }}"
 on:
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
