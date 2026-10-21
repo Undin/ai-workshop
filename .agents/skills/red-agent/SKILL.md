@@ -67,11 +67,14 @@ expected results as `expect.soft` assertions, so one run tells every difference,
 of each result, `.red-agent/out/<nn>-<slug>/<mm>-<what>.png`. Run them all:
 
 ```bash
+set -a; . ./.env; set +a     # if there is a .env: GITHUB_TOKEN, in the same shell as the run
 npx playwright test -c .agents/skills/red-agent/scripts/playwright.config.ts
 # one: … -c .agents/skills/red-agent/scripts/playwright.config.ts 03-
 ```
 
-The config starts the real `./skill-atlas serve` on port 3102.
+The config starts the real `./skill-atlas serve` on port 3102; it scans GitHub with the
+`GITHUB_TOKEN` of the shell that runs it, so each run needs the token there: without it, GitHub's
+low rate limit stops the scans.
 
 ### 4. Judge each result
 
