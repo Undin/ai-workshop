@@ -1,5 +1,6 @@
-// The filter (spec/web.md, Page; #9) on JetBrains/MPS: it keeps the skills whose name or first
-// sentence contains its text, marks each match, and shows how many are shown of all.
+// The filter (spec/web.md, Page; #9) on JetBrains/koog, small enough for its scan to stay clear of
+// GitHub's rate limit (429; #27): it keeps the skills whose name or first sentence contains its text,
+// marks each match, and shows how many are shown of all.
 // A real repository changes: what is checked is what the filter does, not which skills it has.
 import { expect, keyPoint, pause, test, type } from './demo.ts';
 import type { Page } from '@playwright/test';
@@ -21,17 +22,18 @@ async function filterBy(page: Page, text: string, all: number) {
 
 test('the filter', async ({ page }) => {
   await page.goto('/');
-  await type(page.getByLabel('Repository'), 'https://github.com/JetBrains/MPS', 60);
+  await type(page.getByLabel('Repository'), 'https://github.com/JetBrains/koog', 60);
   await page.getByRole('button', { name: 'Scan' }).click();
-  await expect(page.getByRole('heading', { name: /^JetBrains\/MPS · \d+ skills$/ })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole('heading', { name: /^JetBrains\/koog · \d+ skills$/ })).toBeVisible({ timeout: 120_000 });
   const all = await skills(page).count();
   await expect(page.getByText(`Showing ${all} of ${all} skills`)).toBeVisible();
   await keyPoint(page, 'all-skills');
   await pause(page);
 
-  // A name and a first sentence, in any case: teamcity-cli, and `… TeamCity feature-branch validation …`
-  await filterBy(page, 'teamcity', all);
-  await filterBy(page, 'editor', all);
+  // A name and a first sentence, in any case: split-jvm-nonjvm, and `… into JVM and non-JVM parts …`;
+  // a first sentence only: `… docs that already have Kotlin examples …`
+  await filterBy(page, 'jvm', all);
+  await filterBy(page, 'kotlin', all);
 
   // Nothing kept.
   await type(page.getByLabel('Filter'), 'python');
