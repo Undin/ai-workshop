@@ -18,8 +18,6 @@ main { display: grid; grid-template-columns: minmax(16rem, 24rem) 1fr; min-heigh
 main[hidden], [hidden] { display: none; }
 #organization { padding: 1rem 1.5rem; max-width: 50rem; }
 #organization h2 { font-size: 1rem; margin: 0 0 0.75rem; }
-#organization-warnings li { font-size: 0.85rem; color: #9a6700; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
-#organization-warnings:not(:empty) { margin-bottom: 0.75rem; }
 #progress { margin: 0.75rem 1.5rem 0; font-size: 0.85rem; color: var(--muted); }
 #progress a { color: inherit; }
 #stop { font: inherit; margin-left: 0.5rem; padding: 0.1rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
@@ -31,8 +29,6 @@ main[hidden], [hidden] { display: none; }
 nav { border-right: 1px solid var(--border); padding: 1rem; overflow: auto; }
 nav h2 { font-size: 1rem; margin: 0 0 0.75rem; }
 ul { list-style: none; margin: 0; padding: 0; }
-#warnings li { font-size: 0.85rem; color: #9a6700; margin-bottom: 0.4rem; overflow-wrap: anywhere; }
-#warnings:not(:empty) { margin-bottom: 0.75rem; }
 #filtering { margin-bottom: 0.75rem; }
 #filtering label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
 #filter { box-sizing: border-box; width: 100%; }

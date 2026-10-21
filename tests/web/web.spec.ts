@@ -165,10 +165,12 @@ test('the filter does not change the chosen skill; a new scan empties it', async
   await expect(skills(page)).toHaveCount(1);
 });
 
-test('the warnings, as the CLI prints them', async ({ page }) => {
+test('no warnings, though the CLI prints some', async ({ page }) => {
   const cli = await atlas(['scan', FIXTURE]);
+  expect(cli.stderr).toMatch(/^warning: /m);
   await scan(page, FIXTURE);
-  await expect(page.getByRole('list', { name: 'Warnings' }).getByRole('listitem')).toHaveText(cli.stderr.split('\n'));
+  await expect(skills(page).first()).toBeVisible();
+  await expect(page.getByText(/^warning: /)).toHaveCount(0);
 });
 
 test('the first skill is chosen at first', async ({ page }) => {
@@ -341,7 +343,7 @@ function scansOf(page: Page): string[] {
   return scans;
 }
 
-test('an organization: its own page, each repository with its skill count as the CLI lists it, and the warnings', async ({ page }) => {
+test('an organization: its own page, each repository with its skill count as the CLI lists it, no warnings', async ({ page }) => {
   const cli = await atlas(['scan', 'https://github.com/JetBrains']);
   const [title, ...lines] = cli.stdout.split('\n');
   await scan(page, 'https://github.com/JetBrains');
@@ -349,7 +351,9 @@ test('an organization: its own page, each repository with its skill count as the
   const listed = lines.map((line) => line.split(' · '));
   await expect(repositories(page).locator('.name')).toHaveText(listed.map(([name]) => name));
   await expect(repositories(page).locator('.count')).toHaveText(listed.map(([, count]) => count));
-  await expect(page.getByRole('list', { name: 'Warnings' }).getByRole('listitem')).toHaveText(cli.stderr.split('\n'));
+  // The CLI prints warnings; the page does not.
+  expect(cli.stderr).toMatch(/^warning: /m);
+  await expect(page.getByText(/^warning: /)).toHaveCount(0);
   // A link for each scanned repository; not for one that is not.
   await expect(page.getByRole('list', { name: 'Repositories' }).getByRole('link')).toHaveText([
     /^JetBrains\/example/,
@@ -378,11 +382,11 @@ test("a scanned repository is a link to its page, from the organization's scan; 
   // Its last update, from the organization's scan.
   await expect(updated(page)).toHaveText(`Updated ${EXAMPLE_UPDATED.date.slice(0, 10)}`);
   await expect(page.getByRole('list', { name: 'Repositories' })).toBeHidden();
-  // Its warnings, from the organization's scan.
+  // A repository with a warning: not shown.
   await page.goBack();
   await page.getByRole('link', { name: /^JetBrains\/malformed/ }).click();
   await expect(page.getByRole('heading', { name: 'JetBrains/malformed · 2 skills' })).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Warnings' }).getByRole('listitem')).toHaveText([/^warning: \.claude\/skills\/broken\/SKILL\.md: malformed front matter/]);
+  await expect(page.getByText(/^warning: /)).toHaveCount(0);
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'JetBrains · 4 repositories' })).toBeVisible();
   await expect(repositories(page)).toHaveCount(4);
