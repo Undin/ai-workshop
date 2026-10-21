@@ -1,50 +1,38 @@
 // The decisions in spec/web.md that the server makes: the page, and the scan as JSON, the same as
 // what the CLI prints. What the page does with it is in tests/web/web.spec.ts.
 import assert from 'node:assert/strict';
-import { spawn, spawnSync, type SpawnOptions } from 'node:child_process';
-import { once } from 'node:events';
+import { spawnSync } from 'node:child_process';
 import { request } from 'node:http';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { after, test, type TestContext } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
 import { createBrowserBackend } from '../src/browser.ts';
 import { run } from '../src/commands.ts';
 import type { Fetch } from '../src/core/github.ts';
 import { createAtlasServer, isServedHost, listen, type ErrorAnswer, type OrganizationLine, type ScanAnswer } from '../src/server.ts';
-import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, EXAMPLE_UPDATED, FIXTURE, github, openWith } from './helpers.ts';
-
-const PRELOAD = fileURLToPath(new URL('github-preload.ts', import.meta.url));
+import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, EXAMPLE_UPDATED, FIXTURE, github, openWith, PRELOAD, serveCli } from './helpers.ts';
 
 /**
- * `node <args>` as a real `skill-atlas serve`: its printed address, once it listens. Killed after
- * the test, before the test's own cleanup; fails, not hangs, if it exits without an address.
+ * `skill-atlas serve <args>` in-process, with a fake server and a cache as the CLI has: the exit
+ * code, the ports served, whether each serves from the cache, stderr.
  */
-async function serveCli(t: TestContext, args: string[], options: SpawnOptions = {}): Promise<string> {
-  const served = spawn(process.execPath, args, { ...options, stdio: ['ignore', 'pipe', 'inherit'] });
-  t.after(() => served.kill());
-  const printed = once(served.stdout!, 'data').then(([line]: Buffer[]) => line.toString());
-  const exited = once(served, 'exit').then(([code]) => `exited with ${code} before printing its address`);
-  const line = await Promise.race([printed, exited]);
-  const address = /^Skill Atlas: (http:\/\/127\.0\.0\.1:\d+\/)\n$/.exec(line)?.[1];
-  assert.ok(address, line);
-  return address;
-}
-
-/** `skill-atlas serve <args>` in-process, with a fake server: the exit code, the ports served, stderr. */
 async function serveWith(args: string[]) {
   const ports: number[] = [];
+  const cached: boolean[] = [];
   const stderr: string[] = [];
   const code = await run(['serve', ...args], {
     open: () => Promise.reject(new Error('not opened')),
     print: () => {},
     error: (text) => stderr.push(text),
-    serve: async (port) => (ports.push(port), new URL('http://127.0.0.1/')),
+    serve: async (port, { cache }) => (ports.push(port), cached.push(cache), new URL('http://127.0.0.1/')),
+    cacheDirectory: '.skill-atlas-cache',
   });
-  return { code, ports, stderr: stderr.join('\n') };
+  return { code, ports, cached, stderr: stderr.join('\n') };
 }
+
+const SERVE_USAGE = 'Usage: skill-atlas serve [--port <port>] [--no-cache]';
 
 const server = atlasServer();
 const base = await listen(server, 0);
@@ -314,12 +302,13 @@ test('GITHUB_TOKEN works for serve as for scan: from the environment to GitHub',
   const node = ['--import', PRELOAD, CLI];
   const example = 'https://github.com/JetBrains/example';
 
-  const scanned = spawnSync(process.execPath, [...node, 'scan', example], { env: env('scan'), encoding: 'utf8' });
+  // Without the cache: each one asks GitHub itself.
+  const scanned = spawnSync(process.execPath, [...node, 'scan', '--no-cache', example], { env: env('scan'), encoding: 'utf8' });
   assert.equal(scanned.status, 0, scanned.stderr);
   // The API requests carry it; raw.githubusercontent.com is asked without.
   assert.ok(seen('scan').includes('Bearer secret'), seen('scan').join(', '));
 
-  const address = await serveCli(t, [...node, 'serve', '--port', '0'], { env: env('serve') });
+  const address = await serveCli(t, [...node, 'serve', '--port', '0', '--no-cache'], { env: env('serve') });
   t.after(() => rmSync(dir, { recursive: true, force: true })); // after the server is killed
   const answer = await fetch(new URL(`/api/scan?source=${encodeURIComponent(example)}`, address));
   assert.equal(answer.status, 200);
@@ -380,35 +369,49 @@ test('skill-atlas serve: prints its address, serves the page, stores nothing', a
 test('skill-atlas serve: a bad port → a clear message, exit code 1', async () => {
   const bad = spawnSync(process.execPath, [CLI, 'serve', '--port', 'many'], { encoding: 'utf8' });
   assert.equal(bad.status, 1);
-  assert.equal(bad.stderr, 'Not a port: many\nUsage: skill-atlas serve [--port <port>]\n');
+  assert.equal(bad.stderr, `Not a port: many\n${SERVE_USAGE}\n`);
   // Digits only, 0 to 65535; 0 picks a free port.
-  for (const port of ['', '0x1F90', '1e3', '-1', '65536', '80.5', ' 80']) {
-    const expected = { code: 1, ports: [], stderr: `Not a port: ${port}\nUsage: skill-atlas serve [--port <port>]` };
+  // The word after --port is the port, even --no-cache.
+  for (const port of ['', '0x1F90', '1e3', '-1', '65536', '80.5', ' 80', '--no-cache']) {
+    const expected = { code: 1, ports: [], cached: [], stderr: `Not a port: ${port}\n${SERVE_USAGE}` };
     assert.deepEqual(await serveWith(['--port', port]), expected, port);
   }
 });
 
 test('skill-atlas serve: other arguments → the usage, exit code 1', async () => {
   // The shape is checked before the port: a bad port with extra arguments gets the usage too.
-  for (const args of [['--port'], ['80'], ['--port', '80', '81'], ['--port', 'many', '81'], ['--port=80'], ['--host', '80']]) {
-    const expected = { code: 1, ports: [], stderr: 'Usage: skill-atlas serve [--port <port>]' };
+  for (const args of [
+    ['--port'], ['80'], ['--port', '80', '81'], ['--port', 'many', '81'], ['--port=80'], ['--host', '80'],
+    ['--no-cache', '--no-cache'], ['--port', '80', '--port', '81'], ['--cache'],
+  ]) {
+    const expected = { code: 1, ports: [], cached: [], stderr: SERVE_USAGE };
     assert.deepEqual(await serveWith(args), expected, args.join(' '));
   }
 });
 
 test('skill-atlas serve: port 3000 by default; any port from 0 to 65535', async () => {
-  assert.deepEqual(await serveWith([]), { code: 0, ports: [3000], stderr: '' });
+  assert.deepEqual(await serveWith([]), { code: 0, ports: [3000], cached: [true], stderr: '' });
   for (const [port, number] of [['0', 0], ['1', 1], ['080', 80], ['65535', 65535]] as const) {
-    assert.deepEqual(await serveWith(['--port', port]), { code: 0, ports: [number], stderr: '' }, port);
+    assert.deepEqual(await serveWith(['--port', port]), { code: 0, ports: [number], cached: [true], stderr: '' }, port);
   }
 });
 
-test('the browser terminal has no server: its help leaves `serve` out', async () => {
+test('skill-atlas serve --no-cache: with or without --port, in any order', async () => {
+  for (const args of [['--no-cache'], ['--no-cache', '--port', '80'], ['--port', '80', '--no-cache']]) {
+    const port = args.includes('--port') ? 80 : 3000;
+    assert.deepEqual(await serveWith(args), { code: 0, ports: [port], cached: [false], stderr: '' }, args.join(' '));
+  }
+});
+
+test('the browser terminal has no server and no cache: its help leaves `serve` and `--no-cache` out', async () => {
   const terminal = createBrowserBackend({ fetch: () => Promise.reject(new Error('no network')) });
   const help = await terminal.run('skill-atlas help');
   assert.match(help, /^  scan /m);
-  assert.doesNotMatch(help, /serve/);
+  assert.doesNotMatch(help, /serve|no-cache/);
   assert.match(await terminal.run('serve'), /^Unknown command: serve\n/);
-  // The Node CLI lists it.
-  assert.match(spawnSync(process.execPath, [CLI, 'help'], { encoding: 'utf8' }).stdout, /^  serve \[--port <port>\]/m);
+  assert.equal(await terminal.run('scan --no-cache https://github.com/JetBrains/example'), 'Usage: skill-atlas scan <GitHub URL | directory>');
+  // The Node CLI lists them.
+  const cli = spawnSync(process.execPath, [CLI, 'help'], { encoding: 'utf8' }).stdout;
+  assert.match(cli, /^  serve \[--port <port>\]/m);
+  assert.match(cli, /^  --no-cache {22}with scan or serve: ask GitHub for everything, keep nothing in \.skill-atlas-cache\/$/m);
 });
