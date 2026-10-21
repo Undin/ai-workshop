@@ -42,9 +42,10 @@ The front matter, else the directory; a root `SKILL.md`: the repository
 When the skill last changed: asked *in the scan* of the [web view](web.md), one request per skill on
 GitHub, all at once; not in the CLI's
 - On GitHub: the date of the *last commit*, up to the scanned one, that changed the skill's
-  **directory** (its scripts and references count); a `SKILL.md` at the root: the repository's
+  **directory** (its scripts and references count); a `SKILL.md` at the root: the repository's;
+  reached only through a link: its target's directory
 - In a local directory: in a git checkout, the last commit that changed its directory; not committed,
-  or changed since: the *latest modification* of its files
+  or changed since: the *latest modification* of its files, the ones git does not ignore
 - The committer's date, in UTC: `2026-10-14T12:53:27.000Z`
 - It cannot be known (GitHub answers no more, no commit) → that skill's is unknown, and why; the
   scan goes on

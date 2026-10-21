@@ -98,6 +98,26 @@ export const EXAMPLE: Recording = {
   ...lastCommit('JetBrains/dates', '.claude/skills/first', '2026-10-14T12:53:27Z'),
   ...lastCommit('JetBrains/dates', '.claude/skills/second', '2025-03-02T23:30:00-05:00'),
   ...lastCommit('JetBrains/dates', '.claude/skills/uncommitted'),
+
+  // A skill only through a link: `.claude/skills/shared` → `../../shared/review`, not in `skills/<name>/`.
+  'https://api.github.com/repos/JetBrains/linked': { status: 200, body: { full_name: 'JetBrains/linked', default_branch: 'main' } },
+  'https://api.github.com/repos/JetBrains/linked/commits/main': { status: 200, body: { sha: EXAMPLE_COMMIT } },
+  [`https://api.github.com/repos/JetBrains/linked/git/trees/${EXAMPLE_COMMIT}?recursive=1`]: {
+    status: 200,
+    body: {
+      truncated: false,
+      tree: [
+        { path: 'shared/review/SKILL.md', mode: '100644', type: 'blob', sha: 'file' },
+        { path: '.claude/skills/shared', mode: '120000', type: 'blob', sha: 'link' },
+      ],
+    },
+  },
+  'https://api.github.com/repos/JetBrains/linked/git/blobs/link': { status: 200, body: { content: btoa('../../shared/review') } },
+  [`https://raw.githubusercontent.com/JetBrains/linked/${EXAMPLE_COMMIT}/shared/review/SKILL.md`]: {
+    status: 200,
+    body: '---\nname: review\ndescription: Review a change.\n---\n# Review\n',
+  },
+  ...lastCommit('JetBrains/linked', 'shared/review', '2026-07-07T07:07:07Z'),
   [`https://api.github.com/repos/JetBrains/dates/commits?sha=${EXAMPLE_COMMIT}&path=.claude/skills/limited&per_page=1`]: RATE_LIMITED,
 
   // The JetBrains organization: JetBrains/example, one with a warning, an empty one, one without skills.

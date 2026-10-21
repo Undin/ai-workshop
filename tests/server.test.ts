@@ -119,6 +119,13 @@ test("the last update on GitHub: the last commit, up to the scanned one, that ch
   assert.deepEqual(dates['.claude/skills/second/SKILL.md'], { date: '2025-03-03T04:30:00.000Z' });
 });
 
+test("the last update on GitHub of a skill only through a link: its target's directory", async () => {
+  // A pinned ref: listed through the tree, which has the link, even with a token.
+  assert.deepEqual(lastUpdates(await scanned('https://github.com/JetBrains/linked/tree/main')), {
+    '.claude/skills/shared/SKILL.md': { date: '2026-07-07T07:07:07.000Z' },
+  });
+});
+
 test('the last update on GitHub of a SKILL.md at the root: the repository\'s last commit', async () => {
   assert.deepEqual(lastUpdates(await scanned('https://github.com/JetBrains/root')), { 'SKILL.md': { date: '2026-09-01T08:05:00.000Z' } });
 });
@@ -179,9 +186,12 @@ test("the last update in a git checkout: the last commit that changed the skill'
   });
 });
 
-test('the last update in a git checkout, changed since or not committed: the latest modification of its files', async (t) => {
+test('the last update in a git checkout, changed since or not committed: the latest modification of its files git does not ignore', async (t) => {
   const root = checkout(t);
   write(root, { '.claude/skills/b/SKILL.md': '2026-03-01T12:00:00Z', '.claude/skills/c/SKILL.md': '2026-04-01T12:00:00Z' });
+  // Ignored by git: not the skill's change.
+  writeFileSync(join(root, '.gitignore'), '*.log\n');
+  write(root, { '.claude/skills/b/build.log': '2026-09-01T12:00:00Z' });
   const dates = lastUpdates(await scanned(root));
   assert.deepEqual(dates['.claude/skills/a/SKILL.md'], { date: '2026-02-01T09:00:00.000Z' });
   assert.deepEqual(dates['.claude/skills/b/SKILL.md'], { date: '2026-03-01T12:00:00.000Z' });

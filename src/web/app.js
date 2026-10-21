@@ -323,10 +323,11 @@ function showUpdated(updated) {
     return;
   }
   // `2026-10-14T12:53:27.000Z`: the day, and on hover the time too.
-  const time = element('time', updated.date.slice(0, 10));
+  const day = updated.date.slice(0, 10);
+  const time = element('time', day);
   time.dateTime = updated.date;
   corner.replaceChildren('Updated ', time);
-  corner.title = `${updated.date.slice(0, 10)} ${updated.date.slice(11, 16)} UTC`;
+  corner.title = `${day} ${updated.date.slice(11, 16)} UTC`;
 }
 
 /** The text, each match of `wanted` in a `<mark>`. */

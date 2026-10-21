@@ -55,6 +55,8 @@ export async function scan(source: Source, options: ScanOptions = {}): Promise<S
 
   const warnings = [...source.warnings, ...found.warnings];
   const skills: Skill[] = [];
+  /** Each skill's regular file: a skill reached through a link changes where its target is. */
+  const regular = new Map<Skill, string>();
   for (const { file } of read.filter((entry) => entry.text === undefined)) {
     warnings.push(`${file.path}: listed, but not found at the scanned commit; skipped`);
   }
@@ -74,7 +76,7 @@ export async function scan(source: Source, options: ScanOptions = {}): Promise<S
       if (index > 0) warnings.push(`${primary.file.path}: same name as ${first.file.path}, different content`);
       const files = new Set(group.map((entry) => entry.file.file));
       const linked = parsed.filter((entry) => entry.file.linked && files.has(entry.file.file));
-      skills.push({
+      const skill: Skill = {
         id: `${source.repository.id}:${primary.file.path}`,
         repository: source.repository.id,
         path: primary.file.path,
@@ -85,18 +87,20 @@ export async function scan(source: Source, options: ScanOptions = {}): Promise<S
         text: primary.text,
         properties: primary.properties,
         body: primary.body,
-      });
+      };
+      skills.push(skill);
+      regular.set(skill, primary.file.file);
     }
   }
   // All at once: on GitHub, each one is a request.
-  if (options.lastUpdates) await Promise.all(skills.map(async (skill) => (skill.updated = await lastUpdate(source, skill))));
+  if (options.lastUpdates) await Promise.all(skills.map(async (skill) => (skill.updated = await lastUpdate(source, regular.get(skill)!))));
   return { repository: source.repository, skills: sortSkills(skills), warnings };
 }
 
-/** When the skill's directory last changed; a SKILL.md at the root, the repository. */
-async function lastUpdate(source: Source, skill: Skill): Promise<LastUpdate> {
+/** When the directory of the skill's file last changed; a SKILL.md at the root, the repository. */
+async function lastUpdate(source: Source, file: string): Promise<LastUpdate> {
   try {
-    return { date: await source.lastUpdate(skill.path.split('/').slice(0, -1).join('/')) };
+    return { date: await source.lastUpdate(file.split('/').slice(0, -1).join('/')) };
   } catch (error) {
     if (!(error instanceof AtlasError)) throw error;
     return { error: error.message };
