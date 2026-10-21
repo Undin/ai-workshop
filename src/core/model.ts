@@ -36,7 +36,12 @@ export type Skill = {
   properties: Record<string, unknown>;
   /** The Markdown after the front matter. */
   body: string;
+  /** When it last changed, asked in the web view's scan only: a GitHub request each. */
+  updated?: LastUpdate;
 };
+
+/** When a skill last changed, as an ISO date in UTC; or why it cannot be known. */
+export type LastUpdate = { date: string } | { error: string };
 
 /**
  * The SKILL.md file, from where its repository is: on GitHub at the scanned commit,

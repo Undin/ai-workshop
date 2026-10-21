@@ -38,6 +38,16 @@ The front matter, else the directory; a root `SKILL.md`: the repository
 - Not the skill's own directory: `.claude/skills/run-tests` is a skill
 - Counted from the scanned root: `scan ./fixture` still finds the fixture's skills
 - Skipped, with one warning: `skipped N SKILL.md in test data`
+### Last update
+When the skill last changed: asked *in the scan* of the [web view](web.md), one request per skill on
+GitHub, all at once; not in the CLI's
+- On GitHub: the date of the *last commit*, up to the scanned one, that changed the skill's
+  **directory** (its scripts and references count); a `SKILL.md` at the root: the repository's
+- In a local directory: in a git checkout, the last commit that changed its directory; not committed,
+  or changed since: the *latest modification* of its files
+- The committer's date, in UTC: `2026-10-14T12:53:27.000Z`
+- It cannot be known (GitHub answers no more, no commit) → that skill's is unknown, and why; the
+  scan goes on
 ## Organization
 `https://github.com/<owner>`, with or without the scheme or a trailing slash: an organization, or a user the same way
 - Its **public** repositories, all of them (forks and archived ones too), in GitHub's order: by name
@@ -52,7 +62,7 @@ The front matter, else the directory; a root `SKILL.md`: the repository
 ## Architecture
 Core: fetch → find → parse. CLI: a *thin client*.
 Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text and its parts: the other
-front matter keys, the body
+front matter keys, the body; in the web view's scan, its last update
 ## Details
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - A tree too large for one answer: only `.agents/skills`, `.claude/skills`, `.github/skills`,

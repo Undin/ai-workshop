@@ -24,6 +24,9 @@ result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - A chosen skill's **SKILL.md**: the front matter as a table, the body as *Markdown*, and its link
   on GitHub at the *scanned commit*; in a directory, the file's path as text (a web page cannot
   open a `file://` link); `also in <paths>` for its copies; the first skill is chosen at first
+- In its **top right corner**, when it was last updated ([analysis.md](analysis.md), Last update),
+  from the scan: `Updated 2026-10-14`, the date in UTC, the time on hover, `2026-10-14 12:53 UTC`;
+  it cannot be known → `Last update unknown`, why on hover
 - The SKILL.md is *untrusted*: rendered HTML is sanitized, scripts never run, remote images
   are not loaded (they would tell their server who opened it)
 - The warnings, as the CLI prints them
@@ -50,7 +53,8 @@ result is not shown. `GITHUB_TOKEN` works as for `scan`.
 - `GET /`: the page
 - `GET /api/scan?source=<link>`; not `HEAD`, which would scan for nothing → `{ repository, skills, warnings }`; each skill has its `link`,
   its first sentence as `summary`, its SKILL.md `text`, and that text's parts: the other front
-  matter keys as `properties`, the Markdown `body`
+  matter keys as `properties`, the Markdown `body`, its last update as `updated`, `{ date }` or
+  `{ error }`
 - For an organization: `application/x-ndjson`, one JSON line at a time, each as soon as it is known:
   `{ organization, repositories }` (each `{ id, url }`), then for each repository as it is scanned
   `{ id, url, repository, skills, warnings }`, as for a repository, or

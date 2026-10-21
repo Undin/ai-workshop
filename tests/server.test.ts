@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync, type SpawnOptions } from 'node:child_process';
 import { once } from 'node:events';
 import { request } from 'node:http';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, test, type TestContext } from 'node:test';
 import { parseSkill } from '../src/core/parse.ts';
@@ -14,7 +14,7 @@ import { createBrowserBackend } from '../src/browser.ts';
 import { run } from '../src/commands.ts';
 import type { Fetch } from '../src/core/github.ts';
 import { createAtlasServer, isServedHost, listen, type ErrorAnswer, type OrganizationLine, type ScanAnswer } from '../src/server.ts';
-import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, FIXTURE, github, openWith } from './helpers.ts';
+import { atlas, atlasServer, CLI, EXAMPLE_COMMIT, EXAMPLE_UPDATED, FIXTURE, github, openWith } from './helpers.ts';
 
 const PRELOAD = fileURLToPath(new URL('github-preload.ts', import.meta.url));
 
@@ -106,6 +106,107 @@ test('on GitHub: the link pins the scanned commit', async () => {
   );
 });
 
+/** Each skill's last update, by its path. */
+const lastUpdates = (answer: ScanAnswer) => Object.fromEntries(answer.skills.map((skill) => [skill.path, skill.updated]));
+
+test("the last update on GitHub: the last commit, up to the scanned one, that changed the skill's directory, in UTC", async () => {
+  // Recorded for `commits?sha=<the scanned commit>&path=<the skill's directory>`, nothing else.
+  assert.deepEqual(lastUpdates(await scanned('https://github.com/JetBrains/example')), {
+    '.claude/skills/commits/SKILL.md': { date: EXAMPLE_UPDATED.date },
+  });
+  const dates = lastUpdates(await scanned('https://github.com/JetBrains/dates'));
+  assert.deepEqual(dates['.claude/skills/first/SKILL.md'], { date: '2026-10-14T12:53:27.000Z' });
+  assert.deepEqual(dates['.claude/skills/second/SKILL.md'], { date: '2025-03-03T04:30:00.000Z' });
+});
+
+test('the last update on GitHub of a SKILL.md at the root: the repository\'s last commit', async () => {
+  assert.deepEqual(lastUpdates(await scanned('https://github.com/JetBrains/root')), { 'SKILL.md': { date: '2026-09-01T08:05:00.000Z' } });
+});
+
+test('the last update cannot be known: no commit, GitHub answers no more → why, for that skill; the scan goes on', async () => {
+  const { response, body } = await scanOf('https://github.com/JetBrains/dates');
+  assert.equal(response.status, 200);
+  const dates = lastUpdates(body as ScanAnswer);
+  assert.equal(Object.keys(dates).length, 4);
+  assert.deepEqual(dates['.claude/skills/uncommitted/SKILL.md'], {
+    error: `No commit changed .claude/skills/uncommitted in https://github.com/JetBrains/dates up to ${EXAMPLE_COMMIT}`,
+  });
+  assert.deepEqual(dates['.claude/skills/limited/SKILL.md'], { error: 'GitHub rate limit reached; try again in a minute' });
+});
+
+/** A new temporary directory with these files, each modified at its date; removed after the test. */
+function directory(t: TestContext, files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  write(root, files);
+  return root;
+}
+
+/** Writes each file, modified at its date. */
+function write(root: string, files: Record<string, string>) {
+  for (const [path, date] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), `---\ndescription: ${path}\n---\n${date}\n`);
+    utimesSync(join(root, path), new Date(date), new Date(date));
+  }
+}
+
+/** git in the directory, each commit at its date. */
+function git(root: string, date: string, ...args: string[]) {
+  const env = { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date };
+  const config = ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false'];
+  const result = spawnSync('git', ['-C', root, ...config, ...args], { env, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+}
+
+/** A git checkout: two skills and a root SKILL.md, then a script of the first one, committed later. */
+function checkout(t: TestContext): string {
+  const root = directory(t, { 'SKILL.md': '2020-01-01', '.claude/skills/a/SKILL.md': '2020-01-01', '.claude/skills/b/SKILL.md': '2020-01-01' });
+  git(root, '2026-01-01T10:00:00Z', 'init', '-q');
+  git(root, '2026-01-01T10:00:00Z', 'add', '-A');
+  git(root, '2026-01-01T10:00:00Z', 'commit', '-q', '-m', 'Skills');
+  write(root, { '.claude/skills/a/scripts/run.sh': '2020-01-01' });
+  git(root, '2026-02-01T10:00:00+01:00', 'add', '-A');
+  git(root, '2026-02-01T10:00:00+01:00', 'commit', '-q', '-m', 'A script');
+  return root;
+}
+
+test("the last update in a git checkout: the last commit that changed the skill's directory, a script too; the root, the repository's", async (t) => {
+  assert.deepEqual(lastUpdates(await scanned(checkout(t))), {
+    '.claude/skills/a/SKILL.md': { date: '2026-02-01T09:00:00.000Z' },
+    '.claude/skills/b/SKILL.md': { date: '2026-01-01T10:00:00.000Z' },
+    'SKILL.md': { date: '2026-02-01T09:00:00.000Z' },
+  });
+});
+
+test('the last update in a git checkout, changed since or not committed: the latest modification of its files', async (t) => {
+  const root = checkout(t);
+  write(root, { '.claude/skills/b/SKILL.md': '2026-03-01T12:00:00Z', '.claude/skills/c/SKILL.md': '2026-04-01T12:00:00Z' });
+  const dates = lastUpdates(await scanned(root));
+  assert.deepEqual(dates['.claude/skills/a/SKILL.md'], { date: '2026-02-01T09:00:00.000Z' });
+  assert.deepEqual(dates['.claude/skills/b/SKILL.md'], { date: '2026-03-01T12:00:00.000Z' });
+  assert.deepEqual(dates['.claude/skills/c/SKILL.md'], { date: '2026-04-01T12:00:00.000Z' });
+});
+
+test('the last update not in a git checkout: the latest modification of its files, a script too', async (t) => {
+  const root = directory(t, { '.claude/skills/x/SKILL.md': '2026-05-01T12:00:00Z', '.claude/skills/x/scripts/run.sh': '2026-06-01T12:00:00Z' });
+  assert.deepEqual(lastUpdates(await scanned(root)), { '.claude/skills/x/SKILL.md': { date: '2026-06-01T12:00:00.000Z' } });
+});
+
+test('the CLI does not ask for the last updates: a GitHub request each', async () => {
+  const requested: string[] = [];
+  const stdout: string[] = [];
+  const code = await run(['scan', 'https://github.com/JetBrains/dates'], {
+    open: openWith((url, init) => (requested.push(url), github(url, init))),
+    print: (text) => stdout.push(text),
+    error: () => {},
+  });
+  assert.equal(code, 0);
+  assert.deepEqual(requested.filter((url) => url.includes('/commits?')), []);
+  assert.equal(stdout[0], 'JetBrains/dates · 4 skills');
+  assert.doesNotMatch(stdout.join('\n'), /Updated|2026-10-14|unknown/);
+});
+
 test('an empty field → 400 and a hint; an unreachable repository, not a GitHub URL → 400 and the CLI message', async () => {
   for (const source of ['', '   ']) {
     const { response, body } = await scanOf(source);
@@ -132,7 +233,7 @@ async function organizationLines(source: string): Promise<{ response: Response; 
   return { response, lines: text.split('\n').filter(Boolean).map((line) => JSON.parse(line)) };
 }
 
-test('an organization: a JSON line at a time, the same repositories, counts and warnings as the CLI, each scan as alone', async () => {
+test('an organization: a JSON line at a time, the same repositories, counts and warnings as the CLI, each scan as alone, last updates too', async () => {
   const cli = await atlas(['scan', 'https://github.com/JetBrains']);
   const { response, lines } = await organizationLines('https://github.com/JetBrains');
   assert.equal(response.status, 200);
@@ -155,6 +256,8 @@ test('an organization: a JSON line at a time, the same repositories, counts and 
   const example = repositories.find((line) => 'id' in line && line.id === 'JetBrains/example');
   const alone = await scanned('https://github.com/JetBrains/example');
   assert.deepEqual(example, { id: 'JetBrains/example', url: 'https://github.com/JetBrains/example', ...alone });
+  // Its skills' last updates too.
+  assert.deepEqual(lastUpdates(alone), { '.claude/skills/commits/SKILL.md': { date: EXAMPLE_UPDATED.date } });
 });
 
 test('an organization, GitHub answers no more → the lines so far, then `{ error }`, last', async () => {
@@ -210,7 +313,8 @@ test('GITHUB_TOKEN works for serve as for scan: from the environment to GitHub',
   t.after(() => rmSync(dir, { recursive: true, force: true })); // after the server is killed
   const answer = await fetch(new URL(`/api/scan?source=${encodeURIComponent(example)}`, address));
   assert.equal(answer.status, 200);
-  assert.deepEqual(seen('serve'), seen('scan'));
+  // The scan's requests, then the skill's last update: an API request too.
+  assert.deepEqual(seen('serve'), [...seen('scan'), 'Bearer secret']);
 });
 
 test('anything else → 404; not GET → 405; the scan, not HEAD either', async () => {

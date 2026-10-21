@@ -1,7 +1,7 @@
 // The web view's page: the repository field, its skills, and the chosen skill's SKILL.md, from
 // GET /api/scan; for an organization, its repositories as they are scanned, each linked to its
-// page, shown from that scan while it goes on. A SKILL.md is untrusted: its Markdown is sanitized
-// before it is shown.
+// page, shown from that scan while it goes on; the chosen skill's last update, from the scan. A
+// SKILL.md is untrusted: its Markdown is sanitized before it is shown.
 import { marked } from '/vendor/marked.js';
 import DOMPurify from '/vendor/purify.js';
 
@@ -289,6 +289,7 @@ function choose(skill, button) {
 
   $('#skill').hidden = false;
   $('#skill-name').textContent = skill.name;
+  showUpdated(skill.updated);
   // A web page cannot open a file:// link: a local skill shows its path.
   if (skill.link.startsWith('file:')) {
     $('#skill-location').replaceChildren(element('code', decodeURIComponent(new URL(skill.link).pathname)));
@@ -309,6 +310,23 @@ function choose(skill, button) {
   });
   $('#front-matter tbody').replaceChildren(...rows);
   $('#skill-body').innerHTML = DOMPurify.sanitize(marked.parse(skill.body, { async: false }));
+}
+
+/** When the skill last changed, in the top right corner: the date in UTC, the time on hover; or why it is unknown. */
+function showUpdated(updated) {
+  const corner = $('#skill-updated');
+  corner.hidden = !updated;
+  if (!updated) return;
+  if (updated.error) {
+    corner.textContent = 'Last update unknown';
+    corner.title = updated.error;
+    return;
+  }
+  // `2026-10-14T12:53:27.000Z`: the day, and on hover the time too.
+  const time = element('time', updated.date.slice(0, 10));
+  time.dateTime = updated.date;
+  corner.replaceChildren('Updated ', time);
+  corner.title = `${updated.date.slice(0, 10)} ${updated.date.slice(11, 16)} UTC`;
 }
 
 /** The text, each match of `wanted` in a `<mark>`. */

@@ -1,6 +1,6 @@
 import { AtlasError, GitHubUnavailable } from './errors.ts';
 import { findSkills, isTestData, type SkillFile } from './find.ts';
-import { sortSkills, type Organization, type Repository, type Skill } from './model.ts';
+import { sortSkills, type LastUpdate, type Organization, type Repository, type Skill } from './model.ts';
 import { parseSkill } from './parse.ts';
 
 /** A repository to scan: its files, and how to read them. */
@@ -16,6 +16,16 @@ export type Source = {
   read(path: string): Promise<Uint8Array | undefined>;
   /** The link's target, as written in the link, or undefined if it is not there. */
   readLink(path: string): Promise<string | undefined>;
+  /**
+   * When the directory last changed, `''` the root, as an ISO date in UTC; an AtlasError if it
+   * cannot be known.
+   */
+  lastUpdate(directory: string): Promise<string>;
+};
+
+export type ScanOptions = {
+  /** Each skill's last update too: on GitHub, a request each. */
+  lastUpdates?: boolean;
 };
 
 export type ScanResult = { repository: Repository; skills: Skill[]; warnings: string[] };
@@ -32,7 +42,7 @@ export type RepositoryScan = { id: string; url: string; result: ScanResult } | {
 type Read = { file: SkillFile; text?: string };
 
 /** fetch → find → parse. Nothing is stored: the result is all there is. */
-export async function scan(source: Source): Promise<ScanResult> {
+export async function scan(source: Source, options: ScanOptions = {}): Promise<ScanResult> {
   // The links and the files are read at the same time: on GitHub, each one is a request.
   const links = await readLinks(source);
   const found = findSkills(source.paths, links, source.repository.name);
@@ -78,18 +88,30 @@ export async function scan(source: Source): Promise<ScanResult> {
       });
     }
   }
+  // All at once: on GitHub, each one is a request.
+  if (options.lastUpdates) await Promise.all(skills.map(async (skill) => (skill.updated = await lastUpdate(source, skill))));
   return { repository: source.repository, skills: sortSkills(skills), warnings };
+}
+
+/** When the skill's directory last changed; a SKILL.md at the root, the repository. */
+async function lastUpdate(source: Source, skill: Skill): Promise<LastUpdate> {
+  try {
+    return { date: await source.lastUpdate(skill.path.split('/').slice(0, -1).join('/')) };
+  } catch (error) {
+    if (!(error instanceof AtlasError)) throw error;
+    return { error: error.message };
+  }
 }
 
 /**
  * The organization's repositories one by one, each as soon as it is scanned. One that cannot be
  * scanned is said so and the scan goes on; when GitHub answers no more, it stops: that is thrown.
  */
-export async function* scanOrganization(source: OrganizationSource): AsyncGenerator<RepositoryScan> {
+export async function* scanOrganization(source: OrganizationSource, options: ScanOptions = {}): AsyncGenerator<RepositoryScan> {
   for (const { id, url, open } of source.repositories) {
     let result: ScanResult;
     try {
-      result = await scan(await open());
+      result = await scan(await open(), options);
     } catch (error) {
       if (!(error instanceof AtlasError) || error instanceof GitHubUnavailable) throw error;
       yield { id, url, error: error.message };
