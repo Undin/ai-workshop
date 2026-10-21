@@ -48,3 +48,21 @@ says how to run a demo, and how to record one anew.
 ![back to organization](organization/screenshots/04-back-to-organization.png)
 
 ![stopped](organization/screenshots/05-stopped.png)
+
+## Groups
+
+[groups.demo.ts](groups/groups.demo.ts) (spec/web.md, Groups; spec/analysis.md, Group; #38), on JetBrains/youtrackdb, then on JetBrains, cut to 14 of its repositories: Group skills once a scan is over, a skill's SKILL.md from its group, Back to skills; for an organization, after Stop, the skills of the repositories scanned, each with its repository.
+
+![skills](groups/screenshots/01-skills.png)
+
+![groups](groups/screenshots/02-groups.png)
+
+![skill from group](groups/screenshots/03-skill-from-group.png)
+
+![back to skills](groups/screenshots/04-back-to-skills.png)
+
+![organization scanning](groups/screenshots/05-organization-scanning.png)
+
+![organization stopped](groups/screenshots/06-organization-stopped.png)
+
+![organization groups](groups/screenshots/07-organization-groups.png)

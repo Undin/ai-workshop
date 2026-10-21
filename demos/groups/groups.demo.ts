@@ -1,9 +1,9 @@
 // Groups (spec/web.md, Groups; spec/analysis.md, Group; #38) on JetBrains/youtrackdb, then on the
-// JetBrains organization: Group skills once a scan is over, each group with its skills, a skill's
-// SKILL.md from there, Back to skills; for an organization, after Stop, the skills of the
-// repositories scanned, each with its repository.
+// JetBrains organization, cut to 14 of its repositories (recording.json): Group skills once a scan
+// is over, each group with its skills, a skill's SKILL.md from there, Back to skills; for an
+// organization, after Stop, the skills of the repositories scanned, each with its repository.
 // A real repository changes: what is checked is what the page does, not which skills it has.
-import { expect, faster, keyPoint, pause, test, type } from './demo.ts';
+import { expect, faster, keyPoint, pause, test, type } from '../demo.ts';
 import type { Page } from '@playwright/test';
 
 const headings = (page: Page) => page.getByRole('list', { name: 'Groups' }).getByRole('heading', { level: 3 });
