@@ -3,7 +3,6 @@
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { cluster } from './core/cluster.ts';
 import { AtlasError } from './core/errors.ts';
 import { firstSentence, skillLink, type Organization, type Skill } from './core/model.ts';
 import { scan, scanOrganization, type OrganizationSource, type ScanResult, type Source } from './core/scan.ts';
@@ -14,7 +13,7 @@ export type ServerOptions = {
 };
 
 /** What GET /api/scan answers: the scan, each skill with its link, first sentence, group and last update. */
-export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link: string; summary: string; group: { id: string; name: string; order: number } })[] };
+export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link: string; summary: string })[] };
 /** What a request that cannot be answered gets instead. */
 export type ErrorAnswer = { error: string };
 /**
@@ -113,13 +112,12 @@ async function answerScan(source: string | null, open: ServerOptions['open'], re
   send(response, 200, scanAnswer(result));
 }
 
-/** The scan as the page shows it: each skill with its link, first sentence and group. */
+/** The scan as the page shows it: each skill with its link and first sentence. */
 function scanAnswer(result: ScanResult): ScanAnswer {
   const skills = result.skills.map((skill) => ({
     ...skill,
     link: skillLink(result.repository, skill),
     summary: firstSentence(skill.description),
-    group: cluster(skill.cluster),
   }));
   return { repository: result.repository, skills, warnings: result.warnings };
 }

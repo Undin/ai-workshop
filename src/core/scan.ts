@@ -1,4 +1,4 @@
-import { clusterOf } from './cluster.ts';
+import { groupById, groupOf } from './group.ts';
 import { AtlasError, GitHubUnavailable } from './errors.ts';
 import { findSkills, isTestData, type SkillFile } from './find.ts';
 import { sortSkills, type LastUpdate, type Organization, type Repository, type Skill } from './model.ts';
@@ -88,7 +88,7 @@ export async function scan(source: Source, options: ScanOptions = {}): Promise<S
         text: primary.text,
         properties: primary.properties,
         body: primary.body,
-        cluster: clusterOf({ name, description: primary.description }),
+        group: groupById(groupOf({ name, description: primary.description })),
       };
       skills.push(skill);
       regular.set(skill, primary.file.file);

@@ -1,5 +1,5 @@
 # The 215 skills of JetBrains' repositories in the clustering plan of #38 (repo | name | group | description,
-# cut at 150 characters), each with the group it gets, checked by hand: tests/cluster.test.ts.
+# cut at 150 characters), each with the group it gets, checked by hand: tests/group.test.ts.
 Exposed | fix-bug | issues | End-to-end bug fix workflow for the Exposed project. Accepts a GitHub issue (#NUMBER), YouTrack issue (EXPOSED-NUMBER), or YouTrack URL (https://youtr
 Exposed | migrate-to-1.0 | migration | Migrates a Kotlin project from Exposed 0.61.0 to Exposed 1.0. Scans Kotlin sources and build files, applies the mechanical changes documented in the o
 MPS | actions | ide-plugins | Guidelines for implementing IntelliJ actions (AnAction). Use those rules when you need to create or change an action in the intellij platform.

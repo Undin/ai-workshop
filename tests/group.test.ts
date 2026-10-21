@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, test } from 'node:test';
-import { cluster, clusterOf, CLUSTERS, OTHER } from '../src/core/cluster.ts';
+import { groupById, groupOf, GROUPS, OTHER } from '../src/core/group.ts';
 import { listen, type ScanAnswer } from '../src/server.ts';
 import { atlasServer, GROUPED } from './helpers.ts';
 
@@ -18,14 +18,14 @@ const scanned = async (source: string) =>
 test('each skill comes with its group: its id, its name, its place in the list', async () => {
   const answer = await scanned('https://github.com/JetBrains/groups');
   assert.deepEqual(Object.fromEntries(answer.skills.map((skill) => [skill.name, skill.group.id])), GROUPED);
-  for (const skill of answer.skills) assert.deepEqual(skill.group, cluster(skill.group.id));
+  for (const skill of answer.skills) assert.deepEqual(skill.group, groupById(skill.group.id));
   assert.deepEqual(answer.skills.find((skill) => skill.name === 'run-tests')!.group, { id: 'testing', name: 'Testing', order: 5 });
   assert.deepEqual(answer.skills.find((skill) => skill.name === 'notes')!.group, { id: 'other', name: 'Other', order: 17 });
 });
 
 test('17 groups and Other, the names as the spec lists them, in its order', () => {
   assert.deepEqual(
-    [...CLUSTERS, OTHER].map(({ name }) => name),
+    [...GROUPS, OTHER].map(({ name }) => name),
     [
       'Language engineering & DSLs',
       'AI/ML & evaluation',
@@ -56,11 +56,11 @@ test("the skills of JetBrains' repositories: each in the group checked by hand",
   assert.equal(rows.length, 215);
   const wrong = rows.flatMap((row) => {
     const [repository, name, group, ...description] = row.split(' | ');
-    const got = clusterOf({ name, description: description.join(' | ') });
+    const got = groupOf({ name, description: description.join(' | ') });
     return got === group ? [] : [`${repository} | ${name}: ${got}, not ${group}`];
   });
   assert.deepEqual(wrong, []);
   // Every group has some.
   const groups = new Set(rows.map((row) => row.split(' | ')[2]));
-  assert.deepEqual([...CLUSTERS, OTHER].filter(({ id }) => !groups.has(id)), []);
+  assert.deepEqual([...GROUPS, OTHER].filter(({ id }) => !groups.has(id)), []);
 });

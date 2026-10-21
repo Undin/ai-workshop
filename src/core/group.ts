@@ -2,14 +2,17 @@
 // (spec/analysis.md, Group). Pure and deterministic: no network, the same skill always in the same group.
 import { firstSentence } from './model.ts';
 
-/** A group of skills: its id, the name shown, and the words that put a skill in it. */
-export type Cluster = { id: string; name: string; keywords: string[] };
+/** The id of a group, the last one Other. */
+export type GroupId = 'other' | 'language-engineering' | 'ml' | 'data' | 'performance' | 'debugging' | 'testing' | 'releases' | 'issues' | 'docs' | 'review' | 'git' | 'search' | 'migration' | 'build-ci' | 'ide-plugins' | 'languages' | 'workflow' | 'other';
+
+/** A skill's group: its id, the name shown, its place in the list, where the groups are shown. */
+export type Group = { id: GroupId; name: string; order: number };
 
 /** For a skill none of the keywords is in. */
-export const OTHER = { id: 'other', name: 'Other' };
+export const OTHER = { id: 'other', name: 'Other' } as const;
 
 /** In the order the groups are shown; a tie goes to the one listed first, so the specific ones come first. */
-export const CLUSTERS: Cluster[] = [
+export const GROUPS: { id: Exclude<GroupId, 'other'>; name: string; keywords: string[] }[] = [
   {
     id: 'language-engineering',
     name: 'Language engineering & DSLs',
@@ -90,7 +93,7 @@ export const CLUSTERS: Cluster[] = [
 ];
 
 /** The few skills the keywords put in the wrong group, by their exact name. */
-export const OVERRIDES: Record<string, string> = {
+export const OVERRIDES: Record<string, GroupId> = {
   nopressure: OTHER.id,
   'ue-code-authoring': 'languages',
   'analysis-api-mark-internal-apis': 'migration',
@@ -103,13 +106,13 @@ export const OVERRIDES: Record<string, string> = {
 const NAME_WEIGHT = 3;
 
 /** The skill's group: an override, else the one whose keywords it has most; none of them, Other. */
-export function clusterOf(skill: { name: string; description: string }): string {
+export function groupOf(skill: { name: string; description: string }): GroupId {
   const override = OVERRIDES[skill.name];
   if (override) return override;
   const name = words(skill.name);
   const sentence = words(firstSentence(skill.description));
-  let best = { id: OTHER.id, score: 0 };
-  for (const { id, keywords } of CLUSTERS) {
+  let best: { id: GroupId; score: number } = { id: OTHER.id, score: 0 };
+  for (const { id, keywords } of GROUPS) {
     const score = keywords.reduce((sum, keyword) => sum + (has(name, keyword) ? NAME_WEIGHT : 0) + (has(sentence, keyword) ? 1 : 0), 0);
     // Strictly higher: a tie stays with the group listed first.
     if (score > best.score) best = { id, score };
@@ -117,10 +120,10 @@ export function clusterOf(skill: { name: string; description: string }): string 
   return best.id;
 }
 
-/** A group by its id, and its place in the list, where the groups are shown; Other, last, for one not in it. */
-export function cluster(id: string): { id: string; name: string; order: number } {
-  const order = CLUSTERS.findIndex((cluster) => cluster.id === id);
-  return order < 0 ? { ...OTHER, order: CLUSTERS.length } : { id, name: CLUSTERS[order].name, order };
+/** A group by its id, with its place in the list; Other last. */
+export function groupById(id: GroupId): Group {
+  const order = GROUPS.findIndex((group) => group.id === id);
+  return order < 0 ? { ...OTHER, order: GROUPS.length } : { id, name: GROUPS[order].name, order };
 }
 
 /** Lowercase, split at what is not a letter or a digit: `MLX-VLM` → `mlx`, `vlm`. */

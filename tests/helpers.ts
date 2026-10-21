@@ -85,7 +85,7 @@ export function owner(login: string, repositories: string[]): Recording {
 const COMMITS = '---\nname: commits\ndescription: Write commit messages the way this repository does. Use for every commit.\n---\n# Commits\n';
 
 /** JetBrains/groups: a skill for each rule of spec/analysis.md, Group, each with the group it gets. */
-export const GROUPS: Record<string, string> = Object.fromEntries(
+export const GROUP_SKILLS: Record<string, string> = Object.fromEntries(
   Object.entries({
     // A keyword in the name and in the first sentence.
     'run-tests': 'Run the tests before pushing.',
@@ -162,8 +162,8 @@ export const EXAMPLE: Recording = {
   ...lastCommit('JetBrains/linked', 'shared/review', '2026-07-07T07:07:07Z'),
 
   // Groups (spec/analysis.md, Group): a skill for each rule, by its directory.
-  ...repository('JetBrains/groups', Object.fromEntries(Object.entries(GROUPS).map(([name, text]) => [`.claude/skills/${name}/SKILL.md`, text]))),
-  ...Object.fromEntries(Object.keys(GROUPS).flatMap((name) => Object.entries(lastCommit('JetBrains/groups', `.claude/skills/${name}`, '2026-05-05T05:05:05Z')))),
+  ...repository('JetBrains/groups', Object.fromEntries(Object.entries(GROUP_SKILLS).map(([name, text]) => [`.claude/skills/${name}/SKILL.md`, text]))),
+  ...Object.fromEntries(Object.keys(GROUP_SKILLS).flatMap((name) => Object.entries(lastCommit('JetBrains/groups', `.claude/skills/${name}`, '2026-05-05T05:05:05Z')))),
 
   // The JetBrains organization: JetBrains/example, one with a warning, an empty one, one without skills.
   ...owner('JetBrains', ['example', 'malformed', 'new', 'none']),

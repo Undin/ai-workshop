@@ -80,7 +80,7 @@ name and its description's *first sentence*; no network, the same skill always i
   `markdown-library-update` → Build, `driver-ui-tests` → Testing
 - The words: the name, the first sentence; in lowercase, split at what is not a letter or a digit
   (`MLX-VLM` → `mlx`, `vlm`)
-- Each group has its **keywords** (`src/core/cluster.ts`): one in the *name* counts 3, in the *first
+- Each group has its **keywords** (`src/core/group.ts`): one in the *name* counts 3, in the *first
   sentence* 1, each keyword once
 - Whole words only: `test` is not in `latest`; a keyword of two words, both in a row: `pull request`,
   not `pull the request`
