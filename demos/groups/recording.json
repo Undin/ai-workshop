@@ -1,0 +1,19 @@
+{
+  "repositories": [
+    ".github",
+    "actions",
+    "angle-pack",
+    "ap-validation",
+    "aspire-plugin",
+    "attachme",
+    "bazel",
+    "bookshelf",
+    "compose-swing-ui",
+    "context",
+    "coursera-assignments",
+    "coverage-report",
+    "cpp-russia-2017-clion",
+    "cpp-russia-2017-cmake"
+  ],
+  "latency": 400
+}

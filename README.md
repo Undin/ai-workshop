@@ -48,11 +48,17 @@ tests; the web view's run in Chromium, after `npx playwright install chromium`.
 and compares the output with [e2e/expected/](e2e/expected/); `UPDATE_EXPECTED=1 npm run e2e`
 rewrites it after adding a repository or moving a pin.
 
-`npm run demo [-- <name>]` records a feature of the web view, [demos/](demos/)`<name>.demo.ts`, on a
-real repository with a visible pointer, into `demos/out/<name>.webm`, and the screenshots of its key
-points into `demos/out/<name>/`, to look at; the Demos workflow records them all on GitHub, run by
-hand. Like `npm run e2e`, it needs the network and `GITHUB_TOKEN`. Waits where
-nothing happens play faster, `×8` in the corner meanwhile (`faster()` in [demos/demo.ts](demos/demo.ts), with `ffmpeg`).
+`npm run demo [-- <name>]` records a feature of the web view, [demos/](demos/)`<name>/<name>.demo.ts`,
+with a visible pointer, into `demos/out/<name>.webm`, and the screenshots of its key points into
+`demos/out/<name>/`, to look at. GitHub answers from the demo's recording,
+`demos/<name>/cache/`: no network, no token, the same every time; a request not recorded fails the
+demo. `npm run demo:record [-- <name>]` records those answers anew from real repositories, with
+`GITHUB_TOKEN`; `demos/<name>/recording.json` can cut an organization to a few of its repositories
+and replay each answer later, a scan that takes time (`demos/recording.ts`). The Demos workflow runs
+them all on every pull request; its screenshots are the ones committed, `demos/<name>/screenshots/`,
+shown in [demos/README.md](demos/README.md): `npm run demo:screenshots` takes them from its green
+run on the last commit pushed. Waits where nothing happens play faster, `×8` in the corner
+meanwhile (`faster()` in [demos/demo.ts](demos/demo.ts), with `ffmpeg`).
 
 - [spec/](spec/): what it does. [AGENTS.md](AGENTS.md): the definition of done.
 - [fixture/](fixture/README.md): a small repository for the tests.

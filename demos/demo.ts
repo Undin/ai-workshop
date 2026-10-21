@@ -1,10 +1,16 @@
-// What every demo shares: the recording, a visible pointer, pauses a viewer can follow, the
-// waits where nothing happens played faster, and screenshots of its key points.
-import { execFileSync } from 'node:child_process';
+// What every demo shares: its web view, GitHub answering from its recording; the video, a visible
+// pointer, pauses a viewer can follow, the waits where nothing happens played faster, and
+// screenshots of its key points.
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdirSync, renameSync, rmSync } from 'node:fs';
-import { test as base, type Locator, type Page } from '@playwright/test';
+import { basename, dirname } from 'node:path';
+import { test as base, expect, type Locator, type Page } from '@playwright/test';
 
 export const VIDEOS = new URL('out/', import.meta.url).pathname;
+const ROOT = new URL('..', import.meta.url).pathname;
+/** `npm run demo:record`: GitHub's answers recorded anew, instead of replayed. */
+const RECORD = process.env.DEMO_RECORD === '1';
 
 /** A part of the video to play `factor` times faster: from `start` to `end`, seconds into it. */
 type Faster = { start: number; end: number; factor: number };
@@ -12,11 +18,48 @@ type Faster = { start: number; end: number; factor: number };
 /** For each recorded page: its demo, when its video started, its parts to play faster, its key points so far. */
 const recordings = new WeakMap<Page, { name: string; started: number; faster: Faster[]; keyPoints: number }>();
 
-/** A page recorded into demos/out/<the demo's file name>.webm, its pointer actions shown. */
+/** A demo: demos/<name>/<name>.demo.ts. */
+const demoName = (file: string) => basename(dirname(file));
+
 export const test = base.extend<{ page: Page }>({
+  /**
+   * The demo's web view, demos/serve.ts, on a port of its own: its address. After the demo, in a
+   * replay: nothing asked that is not recorded.
+   */
+  baseURL: async ({}, use, info) => {
+    const server = spawn(process.execPath, ['demos/serve.ts'], {
+      cwd: ROOT,
+      env: { ...process.env, DEMO: `demos/${demoName(info.file)}`, PORT: '0' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const missing: string[] = [];
+    server.stderr!.on('data', (data: Buffer) => {
+      process.stderr.write(data);
+      missing.push(...[...data.toString().matchAll(/^not recorded: (.+)$/gm)].map((match) => match[1]));
+    });
+    const [line] = (await Promise.race([once(server.stdout!, 'data'), once(server, 'exit').then(() => {
+      throw new Error('demos/serve.ts exited');
+    })])) as Buffer[];
+    try {
+      await use(line.toString().match(/http:\/\/\S+/)![0]);
+      expect(missing, 'GitHub answers the demo asked for and its recording does not have').toEqual([]);
+    } finally {
+      server.kill();
+    }
+  },
+  /**
+   * A page recorded into demos/out/<name>.webm, its pointer actions shown. In a recording, after
+   * the demo: each scan it started, again to its end, so that what the demo stopped is recorded
+   * too, and a replay, faster, finds it.
+   */
   page: async ({ page }, use, info) => {
-    const name = info.file.split('/').at(-1)!.replace(/\.demo\.ts$/, '');
+    const name = demoName(info.file);
     const video = `${VIDEOS}${name}.webm`;
+    // Each scan the page started.
+    const scans: string[] = [];
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/scan') scans.push(request.url());
+    });
     // This run's key points only: none left from an earlier one.
     rmSync(keyPoints(name), { recursive: true, force: true });
     await page.screencast.start({ path: video, size: page.viewportSize()! });
@@ -36,10 +79,11 @@ export const test = base.extend<{ page: Page }>({
     await pause(page, 1500);
     await page.screencast.stop();
     if (recording.faster.length) playFaster(video, recording.faster);
+    if (RECORD) for (const scan of scans) await (await fetch(scan)).text();
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect };
 
 /** Time for a viewer to see what happened. */
 export const pause = (page: Page, ms = 1200) => page.waitForTimeout(ms);
@@ -51,7 +95,10 @@ export async function type(field: Locator, text: string, delay = 120) {
   await field.pressSequentially(text, { delay });
 }
 
-/** Where the screenshots of a demo's key points go: demos/out/<name>/, next to its video. */
+/**
+ * Where the screenshots of a demo's key points go: demos/out/<name>/, next to its video; the ones
+ * committed, demos/<name>/screenshots/, come from the Demos workflow (demos/screenshots.ts).
+ */
 const keyPoints = (name: string) => `${VIDEOS}${name}/`;
 
 /** A key point of the demo: its screenshot, demos/out/<demo>/<nn>-<name>.png, numbered in order. */
