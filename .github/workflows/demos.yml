@@ -1,12 +1,13 @@
-# The demos of the web view (demos/*.demo.ts), all of them, by hand only, apart from CI (ci.yml):
-#   gh workflow run Demos --ref <branch>
-# Each one recorded on real repositories, its video an artifact of its own, `<name>.webm`, and the
-# screenshots of its key points another, `<name>-screenshots`, to look at. Not on pull requests: their
-# scans share the runners' limit on GitHub's code search, and too often get 429 (#27).
-# A demo asserts what it shows: a red run is a demo or a feature that broke, or that 429.
+# The demos of the web view (demos/<name>/<name>.demo.ts), all of them, on every pull request, and
+# by hand (gh workflow run Demos --ref <branch>). GitHub answers each one from its recording,
+# demos/<name>/cache/: no network, no token, no 429 (#27). Its video an artifact of its own,
+# `<name>.webm`, and the screenshots of its key points another, `<name>-screenshots`, to look at.
+# A demo asserts what it shows: a red run is a demo or a feature that broke, or a request the
+# recording does not have (npm run demo:record -- <name>).
 name: Demos
 run-name: "Demos on ${{ github.head_ref || github.ref_name }}"
 on:
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,15 +25,14 @@ jobs:
       - uses: actions/checkout@v7
       - id: list
         run: |
-          names=$(ls demos/*.demo.ts | xargs -n1 basename | sed 's/\.demo\.ts$//')
+          names=$(ls demos/*/*.demo.ts | xargs -n1 dirname | xargs -n1 basename)
           echo "names=$(printf '%s\n' $names | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
-  # Each demo, on real repositories as `npm run demo` does, its video an artifact of its own,
-  # `<name>.webm`, to link from the pull request's description.
+  # Each demo, as `npm run demo` runs it, its video an artifact of its own, `<name>.webm`.
   demo:
     needs: demo-list
     if: needs.demo-list.outputs.names != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -47,18 +47,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       # For the waits a demo plays faster (faster() in demos/demo.ts).
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
-      # A real scan can hit GitHub's rate limit (429), shared by the runners: up to 3 attempts, a minute
-      # apart, each one recording the demo and its key points anew.
       - id: demo
-        run: |
-          for attempt in 1 2 3; do
-            npm run demo -- "$NAME.demo.ts" && exit 0
-            [ "$attempt" = 3 ] || { echo "::warning::Demo $NAME failed (attempt $attempt), retrying in 60 s"; sleep 60; }
-          done
-          exit 1
+        run: npm run demo -- "demos/$NAME/"
         env:
           NAME: ${{ matrix.name }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Even when the demo failed, so that it shows where; not when it never ran.
       - uses: actions/upload-artifact@v7
         if: always() && steps.demo.outcome != 'skipped'
@@ -67,11 +59,11 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 90
-      # The screenshots of its key points, demos/out/<name>/<nn>-<point>.png, as far as it got.
+      # The screenshots of its key points, demos/<name>/screenshots/<nn>-<point>.png, as far as it got.
       - uses: actions/upload-artifact@v7
         if: always() && steps.demo.outcome != 'skipped'
         with:
           name: ${{ matrix.name }}-screenshots
-          path: demos/out/${{ matrix.name }}/
+          path: demos/${{ matrix.name }}/screenshots/
           if-no-files-found: warn
           retention-days: 90
