@@ -3,7 +3,7 @@
 import type { Fetch } from '../src/core/github.ts';
 import { replay } from '../src/core/replay.ts';
 import { createAtlasServer, listen } from '../src/server.ts';
-import { github, inTree, openWith, owner, repository, SLOW_ANSWER_MS } from './helpers.ts';
+import { github, inTree, lastCommit, openWith, owner, RATE_LIMITED, repository, SLOW_ANSWER_MS } from './helpers.ts';
 
 const answers = replay(
   {
@@ -46,14 +46,30 @@ const answers = replay(
     ...owner('Slow', ['first', 'late']),
     ...inTree('Slow/first', {}),
     ...inTree('Slow/late', {}),
+    // Groups: an organization whose first repository has two skills, and whose second answers
+    // SLOW_ANSWER_MS late, with one.
+    ...owner('Halting', ['first', 'late']),
+    ...inTree('Halting/first', {
+      '.claude/skills/run-tests/SKILL.md': '---\nname: run-tests\ndescription: Run the tests before pushing.\n---\n# Run tests\n',
+      '.claude/skills/commits/SKILL.md': '---\nname: commits\ndescription: Write commit messages.\n---\n# Commits\n',
+    }),
+    ...lastCommit('Halting/first', '.claude/skills/run-tests', '2026-05-05T05:05:05Z'),
+    ...lastCommit('Halting/first', '.claude/skills/commits', '2026-05-05T05:05:05Z'),
+    ...inTree('Halting/late', { '.claude/skills/e2e/SKILL.md': '---\nname: e2e\ndescription: The end-to-end tests.\n---\n# e2e\n' }),
+    ...lastCommit('Halting/late', '.claude/skills/e2e', '2026-05-05T05:05:05Z'),
+    // Groups: an organization whose first repository has a skill, and GitHub answers no more at its second.
+    ...owner('Cut', ['first', 'second']),
+    ...inTree('Cut/first', { '.claude/skills/commits/SKILL.md': '---\nname: commits\ndescription: Write commit messages.\n---\n# Commits\n' }),
+    ...lastCommit('Cut/first', '.claude/skills/commits', '2026-05-05T05:05:05Z'),
+    'https://api.github.com/repos/Cut/second/commits/main': RATE_LIMITED,
   },
   github,
 );
 
 // JetBrains/slow answers as JetBrains/example does, SLOW_ANSWER_MS late: a scan still running;
-// Slow/late too.
+// Slow/late too, and Halting/late's commit.
 const slow: Fetch = async (url, init) => {
-  if (!url.includes('JetBrains/slow') && !url.includes('Slow/late/')) return answers(url, init);
+  if (!url.includes('JetBrains/slow') && !url.includes('Slow/late/') && !url.includes('Halting/late/commits/main')) return answers(url, init);
   await new Promise((resolve) => setTimeout(resolve, SLOW_ANSWER_MS));
   return answers(url.replace('JetBrains/slow', 'JetBrains/example'), init);
 };

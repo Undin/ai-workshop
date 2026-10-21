@@ -12,7 +12,7 @@ export type ServerOptions = {
   open(input: string): Promise<Source | OrganizationSource>;
 };
 
-/** What GET /api/scan answers: the scan, each skill with its link, first sentence and last update. */
+/** What GET /api/scan answers: the scan, each skill with its link, first sentence, group and last update. */
 export type ScanAnswer = Omit<ScanResult, 'skills'> & { skills: (Skill & { link: string; summary: string })[] };
 /** What a request that cannot be answered gets instead. */
 export type ErrorAnswer = { error: string };
