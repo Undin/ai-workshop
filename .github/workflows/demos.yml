@@ -33,7 +33,7 @@ jobs:
     needs: demo-list
     if: needs.demo-list.outputs.names != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -48,8 +48,15 @@ jobs:
       - run: npx playwright install --with-deps chromium
       # For the waits a demo plays faster (faster() in demos/demo.ts).
       - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
+      # A real scan can hit GitHub's rate limit (429), shared by the runners: up to 3 attempts, a minute
+      # apart, each one recording the demo and its key points anew.
       - id: demo
-        run: npm run demo -- "$NAME.demo.ts"
+        run: |
+          for attempt in 1 2 3; do
+            npm run demo -- "$NAME.demo.ts" && exit 0
+            [ "$attempt" = 3 ] || { echo "::warning::Demo $NAME failed (attempt $attempt), retrying in 60 s"; sleep 60; }
+          done
+          exit 1
         env:
           NAME: ${{ matrix.name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
