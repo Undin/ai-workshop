@@ -1,0 +1,3 @@
+interface:
+  display_name: "Red Agent"
+  short_description: "Play user scenarios on the web view against the spec and file a GitHub issue for each bug"
