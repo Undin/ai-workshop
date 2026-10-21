@@ -3,7 +3,9 @@
 // UPDATE_EXPECTED=1 writes those files instead, to add a repository or move a pin.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -12,17 +14,21 @@ const EXPECTED = new URL('expected/', import.meta.url);
 const repos: { name: string; url: string }[] = JSON.parse(readFileSync(new URL('repos.json', import.meta.url), 'utf8'));
 const update = Boolean(process.env.UPDATE_EXPECTED);
 
-/** `skill-atlas scan <url>`, as a user runs it; GITHUB_TOKEN comes from the environment. */
+/**
+ * `skill-atlas scan <url>`, as a user runs it; GITHUB_TOKEN comes from the environment. In a
+ * directory of its own, its cache empty: every answer from GitHub itself.
+ */
 function scan(url: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(CLI, ['scan', url]);
+  const cwd = mkdtempSync(join(tmpdir(), 'skill-atlas-e2e-'));
+  return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+    const child = spawn(CLI, ['scan', url], { cwd });
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
     child.on('error', reject);
     child.on('close', (code) => resolve({ code, stdout, stderr }));
-  });
+  }).finally(() => rmSync(cwd, { recursive: true, force: true }));
 }
 
 for (const { name, url } of repos) {

@@ -1,4 +1,8 @@
 // Runs the commands the way the CLI does, with GitHub answering from EXAMPLE below.
+import assert from 'node:assert/strict';
+import { spawn, type SpawnOptions } from 'node:child_process';
+import { once } from 'node:events';
+import type { TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { run } from '../src/commands.ts';
 import type { Fetch } from '../src/core/github.ts';
@@ -8,6 +12,8 @@ import { createAtlasServer } from '../src/server.ts';
 
 export const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
 export const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
+/** `node --import PRELOAD CLI …`: the real CLI, with GitHub answering from EXAMPLE (tests/github-preload.ts). */
+export const PRELOAD = fileURLToPath(new URL('github-preload.ts', import.meta.url));
 
 /** How late tests/serve-test.ts answers for JetBrains/slow: a scan still running. */
 export const SLOW_ANSWER_MS = 2000;
@@ -162,4 +168,19 @@ export async function atlas(args: string[]) {
 /** The web view, as `skill-atlas serve` runs it, with GitHub answering from EXAMPLE. */
 export function atlasServer() {
   return createAtlasServer({ open: openWith(github) });
+}
+
+/**
+ * `node <args>` as a real `skill-atlas serve`: its printed address, once it listens. Killed after
+ * the test, before the test's own cleanup; fails, not hangs, if it exits without an address.
+ */
+export async function serveCli(t: TestContext, args: string[], options: SpawnOptions = {}): Promise<string> {
+  const served = spawn(process.execPath, args, { ...options, stdio: ['ignore', 'pipe', 'inherit'] });
+  t.after(() => served.kill());
+  const printed = once(served.stdout!, 'data').then(([line]: Buffer[]) => line.toString());
+  const exited = once(served, 'exit').then(([code]) => `exited with ${code} before printing its address`);
+  const line = await Promise.race([printed, exited]);
+  const address = /^Skill Atlas: (http:\/\/127\.0\.0\.1:\d+\/)\n$/.exec(line)?.[1];
+  assert.ok(address, line);
+  return address;
 }

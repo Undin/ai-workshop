@@ -65,7 +65,8 @@ Core: fetch → find → parse. CLI: a *thin client*.
 Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text and its parts: the other
 front matter keys, the body; in the web view's scan, its last update
 ## Details
-- **GitHub API**, no clone; *under 5 s* for intellij-community
+- **GitHub API**, no clone; *under 5 s* for intellij-community; its answers kept in the
+  [cache](cli.md#cache) of the Node clients, not by the core
 - A tree too large for one answer: only `.agents/skills`, `.claude/skills`, `.github/skills`,
   `agent/skills` are listed, with a warning
 - With `GITHUB_TOKEN`, through *code search*: it finds files only, so symbolic links are not seen

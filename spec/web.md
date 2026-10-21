@@ -1,13 +1,14 @@
 # Web view
-`./skill-atlas serve [--port <port>]`: a local web view on `http://127.0.0.1:3000`, the same
+`./skill-atlas serve [--port <port>] [--no-cache]`: a local web view on `http://127.0.0.1:3000`, the same
 scan as the [command line](cli.md). Only on this machine (`127.0.0.1`): it reads local directories.
 Only for `localhost` and `127.0.0.1` at its port in the `Host` header (no port: 80), else 403:
 another site's page cannot reach it through a name of its own resolved to `127.0.0.1` (DNS rebinding).
 `<port>`: digits, 0 to 65535, 0 for any free one; else a clear message, exit code 1.
-Other arguments: the usage, exit code 1.
-*Nothing is stored*: each scan is a fresh one, but for the repositories of an organization being
-scanned (Organization page); going back to no repository stops waiting for a running one, and its
-result is not shown. `GITHUB_TOKEN` works as for `scan`.
+`--port <port>` and `--no-cache` in any order, each once; other arguments: the usage, exit code 1.
+Each scan is a fresh one, but for the repositories of an organization being scanned (Organization
+page); going back to no repository stops waiting for a running one, and its result is not shown.
+GitHub's answers come from the same [cache](cli.md#cache) as for `scan`, in the directory `serve`
+was started in, `--no-cache` the same way; *nothing else is stored*. `GITHUB_TOKEN` works as for `scan`.
 ## Page
 - A **field** for a repository link (a GitHub URL, or a directory) and a *Scan* button; Enter scans too
 - The address keeps it, `?source=<link>`: a reload or a shared link scans it again

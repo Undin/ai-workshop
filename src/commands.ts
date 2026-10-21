@@ -4,26 +4,32 @@ import { AtlasError } from './core/errors.ts';
 import { firstSentence, skillLink, type Repository, type Skill } from './core/model.ts';
 import { scan, scanOrganization, type OrganizationSource, type Source } from './core/scan.ts';
 
+/** `cache: false` with `--no-cache`: GitHub is asked for everything, nothing is kept. */
+export type CacheChoice = { cache: boolean };
+
 export type Context = {
   /** Opens what the user asked to scan: a repository, or an organization's repositories. */
-  open(input: string): Promise<Source | OrganizationSource>;
+  open(input: string, options: CacheChoice): Promise<Source | OrganizationSource>;
   print(text: string): void;
   /** Errors and warnings. */
   error(text: string): void;
   /** Starts the web view on the port, and returns its address; only where there is a server. */
-  serve?(port: number): Promise<URL>;
+  serve?(port: number, options: CacheChoice): Promise<URL>;
+  /** Where GitHub's answers are kept on disk, which `--no-cache` turns off; only where there is a disk. */
+  cacheDirectory?: string;
 };
 
 const DEFAULT_PORT = 3000;
 
-/** The commands this client can run: `serve` only where there is a server. */
-function usage({ serve }: Context): string {
+/** The commands this client can run: `serve` only where there is a server, `--no-cache` where there is a cache. */
+function usage({ serve, cacheDirectory }: Context): string {
   return [
     'Usage: skill-atlas <command>',
     '',
     '  scan <GitHub URL | directory>   find every SKILL.md in a repository and print it;',
     '                                  in each repository of a GitHub organization, count them',
     ...(serve ? [`  serve [--port <port>]           open the web view, on port ${DEFAULT_PORT} by default`] : []),
+    ...(cacheDirectory ? [`  --no-cache                      with ${serve ? 'scan or serve' : 'scan'}: ask GitHub for everything, keep nothing in ${cacheDirectory}/`] : []),
     '  help                            show this help',
   ].join('\n');
 }
@@ -45,8 +51,9 @@ export async function run(args: string[], context: Context): Promise<number> {
 }
 
 async function scanCommand(args: string[], context: Context) {
-  if (args.length !== 1) throw new AtlasError('Usage: skill-atlas scan <GitHub URL | directory>');
-  const opened = await context.open(args[0]);
+  const choice = cacheChoice(args, context);
+  if (choice?.rest.length !== 1) throw new AtlasError(`Usage: skill-atlas scan ${context.cacheDirectory ? '[--no-cache] ' : ''}<GitHub URL | directory>`);
+  const opened = await context.open(choice.rest[0], { cache: choice.cache });
   if ('organization' in opened) return printOrganization(opened, context);
   const result = await scan(opened);
   printRepository(result.repository, result.skills, context);
@@ -66,14 +73,27 @@ async function printOrganization(source: OrganizationSource, { print, error }: C
   }
 }
 
-async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, { print }: Context) {
-  const serveUsage = 'Usage: skill-atlas serve [--port <port>]';
-  if (args.length !== 0 && (args.length !== 2 || args[0] !== '--port')) throw new AtlasError(serveUsage);
+async function serveCommand(args: string[], serve: NonNullable<Context['serve']>, context: Context) {
+  const serveUsage = `Usage: skill-atlas serve [--port <port>]${context.cacheDirectory ? ' [--no-cache]' : ''}`;
+  const choice = cacheChoice(args, context);
+  if (!choice) throw new AtlasError(serveUsage);
+  const { cache, rest } = choice;
+  if (rest.length !== 0 && (rest.length !== 2 || rest[0] !== '--port')) throw new AtlasError(serveUsage);
   // Digits only: Number() would also take '', 0x1F90 and 1e3.
-  if (args.length && (!/^\d+$/.test(args[1]) || Number(args[1]) > 65535)) {
-    throw new AtlasError(`Not a port: ${args[1]}\n${serveUsage}`);
+  if (rest.length && (!/^\d+$/.test(rest[1]) || Number(rest[1]) > 65535)) {
+    throw new AtlasError(`Not a port: ${rest[1]}\n${serveUsage}`);
   }
-  print(`Skill Atlas: ${(await serve(args.length ? Number(args[1]) : DEFAULT_PORT)).href}`);
+  context.print(`Skill Atlas: ${(await serve(rest.length ? Number(rest[1]) : DEFAULT_PORT, { cache })).href}`);
+}
+
+/**
+ * `--no-cache` anywhere among the arguments, once, where there is a cache: whether to use the
+ * cache, and the other arguments; undefined for a `--no-cache` too many, or one where there is no cache.
+ */
+function cacheChoice(args: string[], { cacheDirectory }: Context): { cache: boolean; rest: string[] } | undefined {
+  const at = cacheDirectory ? args.indexOf('--no-cache') : -1;
+  const rest = at < 0 ? args : args.toSpliced(at, 1);
+  return rest.includes('--no-cache') ? undefined : { cache: at < 0, rest };
 }
 
 /** `<owner>/<repo> · N skills`, then each skill's name, first sentence and link. */
