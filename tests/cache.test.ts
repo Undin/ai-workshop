@@ -11,8 +11,9 @@ import { cached } from '../src/cache.ts';
 import { run } from '../src/commands.ts';
 import type { Fetch } from '../src/core/github.ts';
 import { replay } from '../src/core/replay.ts';
+import { scan, type Source } from '../src/core/scan.ts';
 import { openSource } from '../src/open.ts';
-import { CLI, EXAMPLE, EXAMPLE_COMMIT, github, PRELOAD, serveCli } from './helpers.ts';
+import { CLI, EXAMPLE, EXAMPLE_COMMIT, EXAMPLE_UPDATED, github, PRELOAD, serveCli } from './helpers.ts';
 
 const CACHE = '.skill-atlas-cache';
 const EXAMPLE_URL = 'https://github.com/JetBrains/example';
@@ -129,6 +130,22 @@ test('pinned to a commit: the trees and the files kept 30 days, a commit by its 
   assert.deepEqual(later.asked, ['https://api.github.com/repos/JetBrains/example']);
 });
 
+test("a skill's last update, up to the scanned commit, is kept 30 days", async (t) => {
+  const directory = temporary(t);
+  const lastUpdate = `https://api.github.com/repos/JetBrains/example/commits?sha=${EXAMPLE_COMMIT}&path=.claude/skills/commits&per_page=1`;
+  const updated = async (at: number) => {
+    const asked: string[] = [];
+    const fetch = cached((url, init) => (asked.push(url), github(url, init)), { directory, token: 'test', now: () => at });
+    const opened = await openSource(EXAMPLE_URL, { fetch, token: 'test' });
+    const { skills } = await scan(opened as Source, { lastUpdates: true });
+    return { updated: skills[0].updated, asked };
+  };
+  const first = await updated(START);
+  assert.deepEqual(first, { updated: { date: EXAMPLE_UPDATED.date }, asked: [...EXAMPLE_ASKED, lastUpdate] });
+  assert.deepEqual(await updated(START + 61 * MINUTE), { ...first, asked: EXAMPLE_ASKED.slice(0, 3) });
+  assert.deepEqual(await updated(START + 30 * 24 * 60 * MINUTE + MINUTE), first);
+});
+
 test('an error answer is never kept: a rate limit, a 404 are asked again', async (t) => {
   const directory = temporary(t);
   const limited = await atlasCached(['scan', 'https://github.com/Limited'], directory);
@@ -193,16 +210,19 @@ test('serve answers from the same cache as scan, in the directory it was started
   const env = (name: string) => ({ ...process.env, GITHUB_TOKEN: 'secret', SKILL_ATLAS_SEEN: join(cwd, name) });
   const api = `/api/scan?source=${encodeURIComponent(EXAMPLE_URL)}`;
 
+  // The web view asks for the skill's last update too, which the scan did not: that alone, then nothing.
   const served = await serveCli(t, ['--import', PRELOAD, CLI, 'serve', '--port', '0'], { cwd, env: env('serve.seen') });
-  const answer = await fetch(new URL(api, served));
-  assert.equal(answer.status, 200);
-  assert.equal(((await answer.json()) as { skills: unknown[] }).skills.length, 1);
-  assert.equal(requests(join(cwd, 'serve.seen')), 0);
+  for (const asked of [1, 1]) {
+    const answer = await fetch(new URL(api, served));
+    assert.equal(answer.status, 200);
+    assert.equal(((await answer.json()) as { skills: unknown[] }).skills.length, 1);
+    assert.equal(requests(join(cwd, 'serve.seen')), asked);
+  }
 
   const fresh = temporary(t);
   const uncached = await serveCli(t, ['--import', PRELOAD, CLI, 'serve', '--no-cache', '--port', '0'], { cwd: fresh, env: env('uncached.seen') });
   assert.equal((await fetch(new URL(api, uncached))).status, 200);
-  assert.equal(requests(join(cwd, 'uncached.seen')), EXAMPLE_ASKED.length);
+  assert.equal(requests(join(cwd, 'uncached.seen')), EXAMPLE_ASKED.length + 1);
   assert.deepEqual(readdirSync(fresh), []);
 });
 

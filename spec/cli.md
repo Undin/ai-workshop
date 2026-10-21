@@ -35,8 +35,9 @@ JetBrains/none · 0 skills
 ## Cache
 GitHub's answers, kept on disk in `.skill-atlas-cache/` in the *current directory*: a scan asks
 GitHub only for what is not there or expired.
-- Pinned to a commit (a tree, a blob, a file at a commit, a commit by its sha): kept *30 days*;
-  the rest (a repository, a branch or tag → its commit, an owner's repositories, code search): *1 hour*
+- Pinned to a commit (a tree, a blob, a file at a commit, a commit by its sha, a skill's last
+  update up to the scanned commit): kept *30 days*; the rest (a repository, a branch or tag → its
+  commit, an owner's repositories, code search): *1 hour*
 - Only **successful** answers (200); an error (404, rate limit, a rejected token, 409) never: a fixed
   problem is seen at once
 - **Per token**: a file's name is a hash of the token and the URL; the token is never written;

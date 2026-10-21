@@ -9,7 +9,10 @@ import type { Fetch } from './core/github.ts';
 export const CACHE_DIRECTORY = '.skill-atlas-cache';
 
 const MINUTE = 60 * 1000;
-/** A tree, a blob, a file at a commit, a commit by its sha: what it answers never changes. */
+/**
+ * A tree, a blob, a file at a commit, a commit by its sha, the last change of a directory up to a
+ * commit: what it answers never changes.
+ */
 export const PINNED_MS = 30 * 24 * 60 * MINUTE;
 /** A repository, a branch or tag → its commit, an owner's repositories, code search. */
 export const MOVING_MS = 60 * MINUTE;
@@ -27,6 +30,7 @@ type Kept = { url: string; expires: number; status: number; body: string };
 
 const PINNED = [
   /^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/(?:git\/trees|git\/blobs|commits)\/[0-9a-f]{40}(?:\?|$)/i,
+  /^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/commits\?sha=[0-9a-f]{40}(?:&|$)/i,
   /^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[0-9a-f]{40}\//i,
 ];
 
