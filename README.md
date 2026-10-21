@@ -42,8 +42,8 @@ rewrites it after adding a repository or moving a pin.
 
 `npm run demo [-- <name>]` records a feature of the web view, [demos/](demos/)`<name>.demo.ts`, on a
 real repository with a visible pointer, into `demos/out/<name>.webm`, and the screenshots of its key
-points into `demos/out/<name>/`, for a pull request's description; the Demos workflow records them
-all on every pull request. Like `npm run e2e`, it needs the network and `GITHUB_TOKEN`. Waits where
+points into `demos/out/<name>/`, to look at; the Demos workflow records them all on GitHub, run by
+hand. Like `npm run e2e`, it needs the network and `GITHUB_TOKEN`. Waits where
 nothing happens play faster, `×8` in the corner meanwhile (`faster()` in [demos/demo.ts](demos/demo.ts), with `ffmpeg`).
 
 - [spec/](spec/): what it does. [AGENTS.md](AGENTS.md): the definition of done.
