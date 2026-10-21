@@ -1,6 +1,6 @@
-// The filter (spec/web.md, Page; #9) on JetBrains/aspire-plugin, small enough for its scan to stay
-// clear of GitHub's rate limit (429; #27): it keeps the skills whose name or first sentence contains
-// its text, marks each match, and shows how many are shown of all.
+// The filter (spec/web.md, Page; #9) on JetBrains/aspire-plugin, a small repository: it keeps the
+// skills whose name or first sentence contains its text, marks each match, and shows how many are
+// shown of all.
 // A real repository changes: what is checked is what the filter does, not which skills it has.
 import { expect, keyPoint, pause, test, type } from './demo.ts';
 import type { Page } from '@playwright/test';

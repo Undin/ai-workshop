@@ -12,25 +12,20 @@ Integration tests for every case in the spec.
 4. **Test** locally: `npm run typecheck`, `npm test`, and `npm run e2e` when the change touches
    scanning; fix until green
 5. **Demo**, when the change adds a feature of the web view or changes one: `demos/<name>.demo.ts`
-   showing exactly it (looked at locally, `npm run demo -- <name>`, its screenshots in `demos/out/<name>/`)
-6. **Pull request**: push, `gh pr create` against `main` with what and why, a draft while a demo of
-   step 5 is still to be shown in it; then wait for CI
-   (`gh pr checks --watch`), the Demos workflow included: it records every demo on each push to a
-   pull request; a red check is fixed with a new commit on the branch, until green. For each demo of
-   step 5: commit the screenshots of its Demos run (its `<name>-screenshots` artifact) into
-   `demos/<name>/`, a commit of their own, and put them in the pull request's description with a
-   link to its video (its `<name>.webm` artifact); then mark it ready (`gh pr ready`). A later change
-   that can alter what a demo shows: the same again, from its new Demos run
+   showing exactly it, green and looked at locally (`npm run demo -- <name>`, its video and
+   screenshots in `demos/out/`, never committed); again after a later change that can alter what
+   it shows
+6. **Pull request**: push, `gh pr create` against `main` with what and why; then wait for CI
+   (`gh pr checks --watch`); a red check is fixed with a new commit on the branch, until green
 ## Definition of done
 - All tests pass locally
 - The pull request's CI is green
-- A new or changed feature of the web view: its demo green, its screenshots and video in the
-  pull request's description
+- A new or changed feature of the web view: its demo green locally
 
 ## Commands
 - `npm ci`, then `npx playwright install chromium`: first, in a fresh checkout
 - `npm test`: the tests; `npm run test:unit` without a browser, `npm run test:web` the web view in Chromium
 - `npm run demo [-- <name>]`: a demo of a feature ([demos/](demos/)), its video and screenshots;
-  needs the network and `GITHUB_TOKEN`; the Demos workflow runs them all on GitHub,
-  on every pull request
+  needs the network and `GITHUB_TOKEN`; the Demos workflow runs them all on GitHub, by hand
+  (`gh workflow run Demos --ref <branch>`)
 - `npm run e2e`: the real CLI on real repositories ([e2e/](e2e/)); needs the network and `GITHUB_TOKEN`
