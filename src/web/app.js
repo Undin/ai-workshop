@@ -133,11 +133,10 @@ function show(message, { view, error = false } = {}) {
   organization.hidden = view !== organization;
 }
 
-function render({ repository, skills, warnings }) {
+function render({ repository, skills }) {
   show(skills.length ? '' : 'No skills found', { view: main });
   showList(true);
   $('#repository').textContent = `${repository.id} · ${count(skills.length, 'skill', 'skills')}`;
-  $('#warnings').replaceChildren(...warnings.map((warning) => element('li', `warning: ${warning}`)));
   // The scan is over: its skills in their groups.
   $('#group').hidden = !skills.length;
 
@@ -229,11 +228,10 @@ function showOrganizationGroups() {
 
 /**
  * The organization's repositories at once, then each one's skill count as it is scanned, a link
- * to its page once it is; the warnings as the CLI prints them. The scan is kept in the page.
+ * to its page once it is. The scan is kept in the page.
  */
 async function followOrganization(source, answer, controller) {
   const scanning = { source, controller, running: true, message: '', error: false, total: 0, scanned: 0, repositories: new Map() };
-  const warnings = $('#organization-warnings');
   try {
     for await (const line of answer) {
       if (controller.signal.aborted) return;
@@ -241,7 +239,6 @@ async function followOrganization(source, answer, controller) {
         Object.assign(scanning, { id: line.organization.id, total: line.repositories.length });
         if (!scanning.total) scanning.message = 'No repositories found';
         $('#organization-name').textContent = `${scanning.id} · ${count(scanning.total, 'repository', 'repositories')}`;
-        warnings.replaceChildren();
         $('#repositories').replaceChildren(
           ...line.repositories.map(({ id, url }) => {
             const row = element('span', '', 'row');
@@ -271,7 +268,6 @@ async function followOrganization(source, answer, controller) {
           link.append(...repository.row.childNodes);
           inPage(link);
           repository.row.replaceWith(link);
-          warnings.append(...line.warnings.map((warning) => element('li', `warning: ${line.id}: ${warning}`)));
         }
         updateProgress();
       } else {

@@ -30,7 +30,7 @@ was started in, `--no-cache` the same way; *nothing else is stored*. `GITHUB_TOK
   it cannot be known → `Last update unknown`, why on hover
 - The SKILL.md is *untrusted*: rendered HTML is sanitized, scripts never run, remote images
   are not loaded (they would tell their server who opened it)
-- The warnings, as the CLI prints them
+- No warnings: they can be many and hide the skills; the CLI prints them
 - No skills → `No skills found`; an empty field → `Enter a GitHub repository URL or a directory`;
   an unreachable repository or not a GitHub URL → the same clear message as the CLI
 ## Organization page
@@ -48,7 +48,7 @@ was started in, `--no-cache` the same way; *nothing else is stored*. `GITHUB_TOK
   it goes on; no new scan
 - The scan is kept *in the page* only, while it is open: a reload, a shared link, a new tab or the
   Scan button scan afresh; scanning anything else, or going back to no repository, stops it
-- The warnings, as the CLI prints them
+- No warnings: they can be many and hide the skills; the CLI prints them
 - GitHub answers no more → its message, red, above the repositories; the ones left: `not scanned`
 ## Groups
 - A **Group skills** button above the skills, once the scan is over and found skills: a repository's
